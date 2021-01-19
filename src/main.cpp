@@ -380,7 +380,7 @@ void init()
 	glEnable(GL_DEPTH_TEST);
 	programColor = shaderLoader.CreateProgram("shaders/shader_color.vert", "shaders/shader_color.frag");
 	programTexture = shaderLoader.CreateProgram("shaders/shader_tex.vert", "shaders/shader_tex.frag");
-	programCubemap = shaderLoader.CreateProgram("shaders/shader_cubemap.vert", "shaders/shader_cubemap.frag");
+	//programCubemap = shaderLoader.CreateProgram("shaders/shader_cubemap.vert", "shaders/shader_cubemap.frag");
 	programSkybox = shaderLoader.CreateProgram("shaders/shader_skybox.vert", "shaders/shader_skybox.frag");
 	programStatic = shaderLoader.CreateProgram("shaders/shader_hp.vert", "shaders/shader_hp.frag");
 	sphereModel = obj::loadModelFromFile("models/sphere.obj");
