@@ -19,6 +19,7 @@ GLuint programTexture;
 GLuint programCubemap;
 GLuint programSkybox;
 GLuint programStatic;
+GLuint programExplode;
 
 GLuint cubemapTexture;
 
@@ -49,6 +50,10 @@ float newMouseY = 0;
 float lastX = 0;
 float lastY = 0;
 float mouseSpeed = 0.5f;
+
+bool explode = false;
+float expl_time = 0.0f;
+float expl_speed = 0.05f;
 
 glm::quat rotationZ = glm::angleAxis(glm::radians(0.f), glm::vec3(0, 0, 1));
 
@@ -91,6 +96,8 @@ void keyboard(unsigned char key, int x, int y)
 	case 's': cameraPos -= cameraDir * moveSpeed; break;
 	case 'd': cameraPos += cameraSide * moveSpeed; break;
 	case 'a': cameraPos -= cameraSide * moveSpeed; break;
+	case 'e': explode = true; break;
+	case 'r': explode = false; break;
 	}
 }
 
@@ -165,6 +172,25 @@ void drawObjectTexture(obj::Model * model, glm::mat4 modelMatrix, GLuint texture
 	glUseProgram(0);
 }
 
+void drawObjectExplode(obj::Model* model, glm::mat4 modelMatrix, glm::vec3 color)
+{
+	GLuint program = programExplode;
+
+	glUseProgram(program);
+
+	glUniform3f(glGetUniformLocation(program, "objectColor"), color.x, color.y, color.z);
+	glUniform3f(glGetUniformLocation(program, "lightDir"), lightDir.x, lightDir.y, lightDir.z);
+	glUniform1f(glGetUniformLocation(program, "time"), expl_time);
+	expl_time += expl_speed;
+
+	glm::mat4 transformation = perspectiveMatrix * cameraMatrix * modelMatrix;
+	glUniformMatrix4fv(glGetUniformLocation(program, "modelViewProjectionMatrix"), 1, GL_FALSE, (float*)&transformation);
+	glUniformMatrix4fv(glGetUniformLocation(program, "modelMatrix"), 1, GL_FALSE, (float*)&modelMatrix);
+
+	Core::DrawModel(model);
+
+	glUseProgram(0);
+}
 
 void renderScene()
 {	
@@ -178,7 +204,13 @@ void renderScene()
 
 	glm::mat4 shipInitialTransformation = glm::translate(glm::vec3(0, -0.25f, 0)) * glm::rotate(glm::radians(180.0f), glm::vec3(0, 1, 0)) * glm::scale(glm::vec3(0.25f));
 	glm::mat4 shipModelMatrix = glm::translate(cameraPos + cameraDir * 0.5f) * glm::mat4_cast(glm::inverse(rotation)) * shipInitialTransformation;
-	drawObjectColor(&shipModel, shipModelMatrix, glm::vec3(0.6f));
+	if (!explode) {
+		drawObjectColor(&shipModel, shipModelMatrix, glm::vec3(0.6f));		
+		expl_time = 0.0;
+	}
+	else if (expl_time <= 2.0){
+		drawObjectExplode(&shipModel, shipModelMatrix, glm::vec3(0.6f));
+	}	
 
 	//drawObjectTexture(&sphereModel, glm::translate(glm::vec3(0,0,0)), textureAsteroid);	
 	for (int i = 0; i < MAX_PLANET_COUNT; i++)
@@ -203,9 +235,9 @@ void init()
 	glEnable(GL_DEPTH_TEST);
 	programColor = shaderLoader.CreateProgram("shaders/shader_color.vert", "shaders/shader_color.frag");
 	programTexture = shaderLoader.CreateProgram("shaders/shader_tex.vert", "shaders/shader_tex.frag");
-	//programCubemap = shaderLoader.CreateProgram("shaders/shader_cubemap.vert", "shaders/shader_cubemap.frag");
 	programSkybox = shaderLoader.CreateProgram("shaders/shader_skybox.vert", "shaders/shader_skybox.frag");
 	programStatic = shaderLoader.CreateProgram("shaders/shader_hp.vert", "shaders/shader_hp.frag");
+	programExplode = shaderLoader.CreateProgram("shaders/shader_explode.vert", "shaders/shader_explode.frag", "shaders/shader_explode.geom");
 	sphereModel = obj::loadModelFromFile("models/sphere.obj");
 	shipModel = obj::loadModelFromFile("models/spaceship.obj");
 	textureAsteroid = Core::LoadTexture("textures/asteroid.png");
@@ -225,7 +257,8 @@ void shutdown()
 	shaderLoader.DeleteProgram(programColor);
 	shaderLoader.DeleteProgram(programTexture);
 	shaderLoader.DeleteProgram(programSkybox);
-	shaderLoader.DeleteProgram(programCubemap);
+	shaderLoader.DeleteProgram(programExplode);
+	shaderLoader.DeleteProgram(programStatic);
 }
 
 void idle()

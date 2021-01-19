@@ -36,6 +36,9 @@
     <None Include="shaders\shader_color.vert" />
     <None Include="shaders\shader_cubemap.frag" />
     <None Include="shaders\shader_cubemap.vert" />
+    <None Include="shaders\shader_explode.frag" />
+    <None Include="shaders\shader_explode.geom" />
+    <None Include="shaders\shader_explode.vert" />
     <None Include="shaders\shader_hp.frag" />
     <None Include="shaders\shader_hp.vert" />
     <None Include="shaders\shader_skybox.frag" />

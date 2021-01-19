@@ -109,5 +109,14 @@
     <None Include="shaders\skybox.vert">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="shaders\shader_explode.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\shader_explode.geom">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\shader_explode.vert">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>
