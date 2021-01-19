@@ -12,10 +12,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Camera.cpp" />
-    <ClCompile Include="src\main_7_1 (1).cpp" />
+    <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\picopng.cpp" />
     <ClCompile Include="src\Render_Utils.cpp" />
     <ClCompile Include="src\Shader_Loader.cpp" />
+    <ClCompile Include="src\Skybox.cpp" />
     <ClCompile Include="src\stbi_image_write.c" />
     <ClCompile Include="src\stb_image.c" />
     <ClCompile Include="src\Texture.cpp" />
@@ -25,6 +26,7 @@
     <ClInclude Include="src\picopng.h" />
     <ClInclude Include="src\Render_Utils.h" />
     <ClInclude Include="src\Shader_Loader.h" />
+    <ClInclude Include="src\Skybox.h" />
     <ClInclude Include="src\stbi_image_write.h" />
     <ClInclude Include="src\stb_image.h" />
     <ClInclude Include="src\Texture.h" />
@@ -34,6 +36,9 @@
     <None Include="shaders\shader_color.vert" />
     <None Include="shaders\shader_cubemap.frag" />
     <None Include="shaders\shader_cubemap.vert" />
+    <None Include="shaders\shader_explode.frag" />
+    <None Include="shaders\shader_explode.geom" />
+    <None Include="shaders\shader_explode.vert" />
     <None Include="shaders\shader_hp.frag" />
     <None Include="shaders\shader_hp.vert" />
     <None Include="shaders\shader_skybox.frag" />

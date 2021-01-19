@@ -96,6 +96,50 @@ GLuint Shader_Loader::CreateProgram(char* vertexShaderFilename,
 	return program;
 }
 
+GLuint Shader_Loader::CreateProgram(char* vertexShaderFilename,
+	char* fragmentShaderFilename, char* geometryShaderFilename)
+{
+
+	//wczytaj shadery
+	std::string vertex_shader_code = ReadShader(vertexShaderFilename);
+	std::string fragment_shader_code = ReadShader(fragmentShaderFilename);
+	std::string geometry_shader_code = ReadShader(geometryShaderFilename);
+
+	GLuint vertex_shader = CreateShader(GL_VERTEX_SHADER, vertex_shader_code, "vertex shader");
+	GLuint fragment_shader = CreateShader(GL_FRAGMENT_SHADER, fragment_shader_code, "fragment shader");
+	GLuint geometry_shader = CreateShader(GL_GEOMETRY_SHADER, geometry_shader_code, "geometry shader");
+
+	int link_result = 0;
+	//stworz shader
+	GLuint program = glCreateProgram();
+	glAttachShader(program, vertex_shader);
+	glAttachShader(program, fragment_shader);
+	glAttachShader(program, geometry_shader);
+
+	glLinkProgram(program);
+	glGetProgramiv(program, GL_LINK_STATUS, &link_result);
+	//sprawdz bledy w linkerze
+	if (link_result == GL_FALSE)
+	{
+
+		int info_log_length = 0;
+		glGetProgramiv(program, GL_INFO_LOG_LENGTH, &info_log_length);
+		std::vector<char> program_log(info_log_length);
+		glGetProgramInfoLog(program, info_log_length, NULL, &program_log[0]);
+		std::cout << "Shader Loader : LINK ERROR" << std::endl << &program_log[0] << std::endl;
+		return 0;
+	}
+
+	glDetachShader(program, vertex_shader);
+	glDetachShader(program, fragment_shader);
+	glDetachShader(program, geometry_shader);
+	glDeleteShader(vertex_shader);
+	glDeleteShader(fragment_shader);
+	glDeleteShader(geometry_shader);
+
+	return program;
+}
+
 void Shader_Loader::DeleteProgram( GLuint program )
 {
 	glDeleteProgram(program);
