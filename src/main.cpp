@@ -6,13 +6,14 @@
 #include <cmath>
 #include <vector>
 
-
 #include "Shader_Loader.h"
 #include "Render_Utils.h"
 #include "Camera.h"
 #include "Texture.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include "Asteroid.h"
 
 GLuint programColor;
 GLuint programTexture;
@@ -20,9 +21,15 @@ GLuint programCubemap;
 GLuint programSkybox;
 GLuint programStatic;
 
+const float RADIUS = 100.f;
+const int ASTEROIDS_NUMBER = 60;
+
+std::vector<GLuint> asteroidTextures;
+std::vector<obj::Model> asteroidModels;
+std::vector<Asteroid> asteroids;
+
 GLuint cubemapTexture;
 GLuint skyboxVAO, skyboxVBO;
-
 
 Core::Shader_Loader shaderLoader;
 
@@ -40,11 +47,8 @@ glm::vec3 lightDir = glm::normalize(glm::vec3(1.0f, -0.9f, -1.0f));
 
 glm::quat rotation = glm::quat(1, 0, 0, 0);
 
-GLuint textureAsteroid;
+//GLuint textureAsteroid;
 
-const int MAX_PLANET_COUNT = 10;
-glm::vec3 planetPositions[MAX_PLANET_COUNT];
-glm::mat4 planetScales[MAX_PLANET_COUNT];
 bool firstMouse;
 float newMouseX = 0;
 float newMouseY = 0;
@@ -303,10 +307,9 @@ void renderScene()
 	glm::mat4 shipModelMatrix = glm::translate(cameraPos + cameraDir * 0.5f) * glm::mat4_cast(glm::inverse(rotation)) * shipInitialTransformation;
 	drawObjectColor(&shipModel, shipModelMatrix, glm::vec3(0.6f));
 
-	//drawObjectTexture(&sphereModel, glm::translate(glm::vec3(0,0,0)), textureAsteroid);	
-	for (int i = 0; i < MAX_PLANET_COUNT; i++)
-	{
-		drawObjectTexture(&sphereModel, glm::translate(planetPositions[i]) * planetScales[i], textureAsteroid);
+	for (Asteroid asteroid : asteroids) {
+
+		drawObjectTexture(&asteroid.Model, asteroid.Coordinates, asteroid.Texture);
 	}
 
 	
@@ -374,32 +377,47 @@ void renderScene()
 	glutSwapBuffers();
 }
 
+void initAsteroids() {
+
+	// ³adowanie textur asteroid
+	for (const auto& file : fs::directory_iterator("textures/asteroids/"))
+		asteroidTextures.push_back(Core::LoadTexture(file.path().string().c_str()));
+
+	// ³adowanie dostêpnych modeli asteroid
+	for (const auto& file : fs::directory_iterator("models/asteroids/"))
+		asteroidModels.push_back(obj::loadModelFromFile(file.path().string().c_str()));
+
+	// generowanie losowych danych dla asteroid
+	for (int i = 0; i < ASTEROIDS_NUMBER; i++) {
+
+		int textureIndex = rand() % asteroidTextures.size();
+		int modelIndex = rand() % asteroidModels.size();
+
+		GLuint texture = asteroidTextures.at(textureIndex);
+		obj::Model model = asteroidModels.at(modelIndex);
+
+		asteroids.push_back(Asteroid(glm::ballRand(RADIUS), texture, model));
+	}
+}
+
 void init()
 {
 	srand(time(0));
 	glEnable(GL_DEPTH_TEST);
 	programColor = shaderLoader.CreateProgram("shaders/shader_color.vert", "shaders/shader_color.frag");
 	programTexture = shaderLoader.CreateProgram("shaders/shader_tex.vert", "shaders/shader_tex.frag");
-	programCubemap = shaderLoader.CreateProgram("shaders/shader_cubemap.vert", "shaders/shader_cubemap.frag");
+	//programCubemap = shaderLoader.CreateProgram("shaders/shader_cubemap.vert", "shaders/shader_cubemap.frag");
 	programSkybox = shaderLoader.CreateProgram("shaders/shader_skybox.vert", "shaders/shader_skybox.frag");
 	programStatic = shaderLoader.CreateProgram("shaders/shader_hp.vert", "shaders/shader_hp.frag");
 	sphereModel = obj::loadModelFromFile("models/sphere.obj");
 	shipModel = obj::loadModelFromFile("models/spaceship.obj");
-	textureAsteroid = Core::LoadTexture("textures/asteroid.png");
 	firstMouse = true;
 	
-	
 	cubemapTexture = loadCubemap(faces);
+	initAsteroids();
 
 	//Core::setA(1);
 	//std::cout << Core::getA();
-
-	for (int i = 0; i < MAX_PLANET_COUNT; i++)
-	{
-		planetScales[i] = glm::scale(glm::vec3(glm::linearRand(1.f, 8.f)));
-		planetPositions[i] = glm::ballRand(100.f);
-	}
-
 }
 
 void shutdown()
