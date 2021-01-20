@@ -6,23 +6,32 @@
 #include <cmath>
 #include <vector>
 
-
+#include "Skybox.h"
 #include "Shader_Loader.h"
 #include "Render_Utils.h"
 #include "Camera.h"
 #include "Texture.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include "Asteroid.h"
 
 GLuint programColor;
 GLuint programTexture;
 GLuint programCubemap;
 GLuint programSkybox;
 GLuint programStatic;
+GLuint programExplode;
+
+const float RADIUS = 100.f;
+const int ASTEROIDS_NUMBER = 60;
+
+std::vector<GLuint> asteroidTextures;
+std::vector<obj::Model> asteroidModels;
+std::vector<Asteroid> asteroids;
 
 GLuint cubemapTexture;
 GLuint skyboxVAO, skyboxVBO;
-
 
 Core::Shader_Loader shaderLoader;
 
@@ -40,11 +49,7 @@ glm::vec3 lightDir = glm::normalize(glm::vec3(1.0f, -0.9f, -1.0f));
 
 glm::quat rotation = glm::quat(1, 0, 0, 0);
 
-GLuint textureAsteroid;
 
-const int MAX_PLANET_COUNT = 10;
-glm::vec3 planetPositions[MAX_PLANET_COUNT];
-glm::mat4 planetScales[MAX_PLANET_COUNT];
 bool firstMouse;
 float newMouseX = 0;
 float newMouseY = 0;
@@ -52,52 +57,13 @@ float lastX = 0;
 float lastY = 0;
 float mouseSpeed = 0.5f;
 
+bool explode = false;
+float expl_time = 0.0f;
+float expl_speed = 0.05f;
+
 glm::quat rotationZ = glm::angleAxis(glm::radians(0.f), glm::vec3(0, 0, 1));
 
-float skyboxVertices[] = {
-	// positions          
-	-1.0f,  1.0f, -1.0f,
-	-1.0f, -1.0f, -1.0f,
-	 1.0f, -1.0f, -1.0f,
-	 1.0f, -1.0f, -1.0f,
-	 1.0f,  1.0f, -1.0f,
-	-1.0f,  1.0f, -1.0f,
 
-	-1.0f, -1.0f,  1.0f,
-	-1.0f, -1.0f, -1.0f,
-	-1.0f,  1.0f, -1.0f,
-	-1.0f,  1.0f, -1.0f,
-	-1.0f,  1.0f,  1.0f,
-	-1.0f, -1.0f,  1.0f,
-
-	 1.0f, -1.0f, -1.0f,
-	 1.0f, -1.0f,  1.0f,
-	 1.0f,  1.0f,  1.0f,
-	 1.0f,  1.0f,  1.0f,
-	 1.0f,  1.0f, -1.0f,
-	 1.0f, -1.0f, -1.0f,
-
-	-1.0f, -1.0f,  1.0f,
-	-1.0f,  1.0f,  1.0f,
-	 1.0f,  1.0f,  1.0f,
-	 1.0f,  1.0f,  1.0f,
-	 1.0f, -1.0f,  1.0f,
-	-1.0f, -1.0f,  1.0f,
-
-	-1.0f,  1.0f, -1.0f,
-	 1.0f,  1.0f, -1.0f,
-	 1.0f,  1.0f,  1.0f,
-	 1.0f,  1.0f,  1.0f,
-	-1.0f,  1.0f,  1.0f,
-	-1.0f,  1.0f, -1.0f,
-
-	-1.0f, -1.0f, -1.0f,
-	-1.0f, -1.0f,  1.0f,
-	 1.0f, -1.0f, -1.0f,
-	 1.0f, -1.0f, -1.0f,
-	-1.0f, -1.0f,  1.0f,
-	 1.0f, -1.0f,  1.0f
-};
 std::vector<std::string> faces
 {
 	"textures/space.jpg",
@@ -105,14 +71,7 @@ std::vector<std::string> faces
 	"textures/space.jpg",
 	"textures/space.jpg",
 	"textures/space.jpg",
-	"textures/space.jpg",
-	//"textures/back_cp.jpeg",
-	//"textures/back_cp.jpeg",
-	//"textures/back_cp.jpeg",
-	//"textures/back_cp.jpeg",
-	//"textures/back_cp.jpeg",
-	//"textures/back_cp.jpeg",
-
+	"textures/space.jpg",	
 };
 
 void drawHealth4(float health) {
@@ -136,15 +95,15 @@ void keyboard(unsigned char key, int x, int y)
 	float angleSpeed = .1f;
 	float moveSpeed = 1.0f;
 	switch(key)
-	{
-	/*case 'z': rotationZ *= glm::angleAxis(glm::radians(-angleSpeed), glm::vec3(0, 0, 1)); break;
-	case 'x': rotationZ *= glm::angleAxis(glm::radians(angleSpeed), glm::vec3(0, 0, 1)); break;*/
+	{	
 	case 'z': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, 1))* rotation; break;
 	case 'x': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, -1))* rotation; break;
 	case 'w': cameraPos += cameraDir * moveSpeed; break;
 	case 's': cameraPos -= cameraDir * moveSpeed; break;
 	case 'd': cameraPos += cameraSide * moveSpeed; break;
 	case 'a': cameraPos -= cameraSide * moveSpeed; break;
+	case 'e': explode = true; break;
+	case 'r': explode = false; break;
 	}
 }
 
@@ -167,79 +126,9 @@ void mouse(int x, int y)
 	newMouseY = yoffset;
 }
 
-unsigned int loadCubemap(std::vector<std::string> faces)
-{
-	unsigned int textureID;
-	glGenTextures(1, &textureID);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
-
-	int width, height, nrChannels;
-	for (unsigned int i = 0; i < faces.size(); i++)
-	{
-		unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
-		if (data)
-		{
-			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-				0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
-			);
-			stbi_image_free(data);
-		}
-		else
-		{
-			std::cout << "Cubemap tex failed to load at path: " << faces[i] << std::endl;
-			stbi_image_free(data);
-		}
-	}
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
-	return textureID;
-}
-
-void createCubemap() {
-	unsigned int textureID;
-	glGenTextures(1, &textureID);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
-
-	int width, height, nrChannels;
-	unsigned char* data;
-
-	std::vector<std::string> textures_faces;
-	textures_faces.push_back("GL_TEXTURE_CUBE_MAP_POSITIVE_X");
-	textures_faces.push_back("GL_TEXTURE_CUBE_MAP_NEGATIVE_X");
-	textures_faces.push_back("GL_TEXTURE_CUBE_MAP_POSITIVE_Y");
-	textures_faces.push_back("GL_TEXTURE_CUBE_MAP_NEGATIVE_Y");
-	textures_faces.push_back("GL_TEXTURE_CUBE_MAP_POSITIVE_Z");
-	textures_faces.push_back("GL_TEXTURE_CUBE_MAP_NEAGTIVE_Z");
-
-	for (unsigned int i = 0; i < textures_faces.size(); i++)
-	{
-		data = stbi_load(textures_faces[i].c_str(), &width, &height, &nrChannels, 0);
-		glTexImage2D(
-			GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-			0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
-		);
-	}
-
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-}
 
 glm::mat4 createCameraMatrix()
 {
-	/*cameraDir = glm::vec3(cosf(cameraAngle - glm::radians(90.0f)), 0.0f, sinf(cameraAngle - glm::radians(90.0f)));
-	glm::vec3 up = glm::vec3(0, 1, 0);
-	cameraSide = glm::cross(cameraDir, up);*/
-
-	/*return Core::createViewMatrix(cameraPos, cameraDir, up);*/
-	
-
 	glm::quat rotationChange;
 	rotationChange = glm::angleAxis(float(newMouseY)*.02f, glm::vec3(1.f, 0.f, 0.f))*glm::angleAxis(float(newMouseX)*.02f, glm::vec3(0.f, 1.f, 0.f));
 	newMouseX = 0;
@@ -288,9 +177,29 @@ void drawObjectTexture(obj::Model * model, glm::mat4 modelMatrix, GLuint texture
 
 	glUseProgram(0);
 }
-void renderScene()
+
+void drawObjectExplode(obj::Model* model, glm::mat4 modelMatrix, glm::vec3 color)
 {
-	
+	GLuint program = programExplode;
+
+	glUseProgram(program);
+
+	glUniform3f(glGetUniformLocation(program, "objectColor"), color.x, color.y, color.z);
+	glUniform3f(glGetUniformLocation(program, "lightDir"), lightDir.x, lightDir.y, lightDir.z);
+	glUniform1f(glGetUniformLocation(program, "time"), expl_time);
+	expl_time += expl_speed;
+
+	glm::mat4 transformation = perspectiveMatrix * cameraMatrix * modelMatrix;
+	glUniformMatrix4fv(glGetUniformLocation(program, "modelViewProjectionMatrix"), 1, GL_FALSE, (float*)&transformation);
+	glUniformMatrix4fv(glGetUniformLocation(program, "modelMatrix"), 1, GL_FALSE, (float*)&modelMatrix);
+
+	Core::DrawModel(model);
+
+	glUseProgram(0);
+}
+
+void renderScene()
+{	
 	// Aktualizacja macierzy widoku i rzutowania
 	cameraMatrix = createCameraMatrix();
 	perspectiveMatrix = Core::createPerspectiveMatrix();
@@ -301,69 +210,21 @@ void renderScene()
 
 	glm::mat4 shipInitialTransformation = glm::translate(glm::vec3(0, -0.25f, 0)) * glm::rotate(glm::radians(180.0f), glm::vec3(0, 1, 0)) * glm::scale(glm::vec3(0.25f));
 	glm::mat4 shipModelMatrix = glm::translate(cameraPos + cameraDir * 0.5f) * glm::mat4_cast(glm::inverse(rotation)) * shipInitialTransformation;
-	drawObjectColor(&shipModel, shipModelMatrix, glm::vec3(0.6f));
-
-	//drawObjectTexture(&sphereModel, glm::translate(glm::vec3(0,0,0)), textureAsteroid);	
-	for (int i = 0; i < MAX_PLANET_COUNT; i++)
-	{
-		drawObjectTexture(&sphereModel, glm::translate(planetPositions[i]) * planetScales[i], textureAsteroid);
+	if (!explode) {
+		drawObjectColor(&shipModel, shipModelMatrix, glm::vec3(0.6f));		
+		expl_time = 0.0;
 	}
+	else if (expl_time <= 2.0){
+		drawObjectExplode(&shipModel, shipModelMatrix, glm::vec3(0.6f));
+	}	
 
+
+	for (Asteroid asteroid : asteroids) {
+
+		drawObjectTexture(&asteroid.Model, asteroid.Coordinates, asteroid.Texture);
+	}
 	
-	/*glDepthFunc(GL_LEQUAL);
-	glUseProgram(programSkybox);
-	glGenVertexArrays(1, &skyboxVAO);
-	glGenBuffers(1, &skyboxVBO);
-	glBindVertexArray(skyboxVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
-	glm::mat4 view = glm::mat4(glm::mat3(cameraMatrix));
-	glUniformMatrix4fv(glGetUniformLocation(programSkybox, "projection"), 1, GL_FALSE, (float*)&perspectiveMatrix);
-	glUniformMatrix4fv(glGetUniformLocation(programSkybox, "view"), 1, GL_FALSE, (float*)&view);
-	glBindVertexArray(skyboxVAO);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-	glDrawArrays(GL_TRIANGLES, 0, 36);
-	glBindVertexArray(0);
-	glDepthFunc(GL_LESS);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);*/
-	//Rendering Skybox
-	
-	//glDepthMask(GL_FALSE);
-	glDepthFunc(GL_LEQUAL);
-	glUseProgram(programSkybox);	
-	glGenVertexArrays(1, &skyboxVAO);
-	glGenBuffers(1, &skyboxVBO);
-	glBindVertexArray(skyboxVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
-	//glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-	//glm::mat4 projection = glm::perspective(glm::radians(100.f), (float)600 / (float)600, 0.1f, 100.0f);
-	//glm::mat4 view = glm::mat4(glm::mat3(cameraMatrix));
-	glm::mat4 view = glm::mat4(glm::mat3(cameraMatrix));
-	glUniformMatrix4fv(glGetUniformLocation(programSkybox, "projection"), 1, GL_FALSE, (float*)&perspectiveMatrix);
-	glUniformMatrix4fv(glGetUniformLocation(programSkybox, "view"), 1, GL_FALSE, (float*)&view);	
-	glBindVertexArray(skyboxVAO);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-	glDrawArrays(GL_TRIANGLES, 0, 36);
-	glBindVertexArray(0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	glDeleteBuffers(1, &skyboxVBO);
-	glDeleteVertexArrays(1, &skyboxVAO);
-	//glDeleteBuffers();
-	glDepthFunc(GL_LESS);
-
-	//glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-
-	glUseProgram(0);
-	//glDepthMask(GL_TRUE);
-
-	//glDepthRange(0.0, 0.9);
-	//glClear(GL_DEPTH_BUFFER_BIT);
+	Skybox::drawSkybox(programSkybox, cameraMatrix, perspectiveMatrix, cubemapTexture);		
 	
 	glUseProgram(programStatic);
 	glm::mat4 translation = glm::translate(glm::vec3(0.95f - 0.1f, -0.95f, 0.f));
@@ -374,32 +235,48 @@ void renderScene()
 	glutSwapBuffers();
 }
 
+void initAsteroids() {
+
+	// �adowanie textur asteroid
+	for (const auto& file : fs::directory_iterator("textures/asteroids/"))
+		asteroidTextures.push_back(Core::LoadTexture(file.path().string().c_str()));
+
+	// �adowanie dost�pnych modeli asteroid
+	for (const auto& file : fs::directory_iterator("models/asteroids/"))
+		asteroidModels.push_back(obj::loadModelFromFile(file.path().string().c_str()));
+
+	// generowanie losowych danych dla asteroid
+	for (int i = 0; i < ASTEROIDS_NUMBER; i++) {
+
+		int textureIndex = rand() % asteroidTextures.size();
+		int modelIndex = rand() % asteroidModels.size();
+
+		GLuint texture = asteroidTextures.at(textureIndex);
+		obj::Model model = asteroidModels.at(modelIndex);
+
+		asteroids.push_back(Asteroid(glm::ballRand(RADIUS), texture, model));
+	}
+}
+
 void init()
 {
 	srand(time(0));
 	glEnable(GL_DEPTH_TEST);
 	programColor = shaderLoader.CreateProgram("shaders/shader_color.vert", "shaders/shader_color.frag");
 	programTexture = shaderLoader.CreateProgram("shaders/shader_tex.vert", "shaders/shader_tex.frag");
-	//programCubemap = shaderLoader.CreateProgram("shaders/shader_cubemap.vert", "shaders/shader_cubemap.frag");
 	programSkybox = shaderLoader.CreateProgram("shaders/shader_skybox.vert", "shaders/shader_skybox.frag");
 	programStatic = shaderLoader.CreateProgram("shaders/shader_hp.vert", "shaders/shader_hp.frag");
+	programExplode = shaderLoader.CreateProgram("shaders/shader_explode.vert", "shaders/shader_explode.frag", "shaders/shader_explode.geom");
 	sphereModel = obj::loadModelFromFile("models/sphere.obj");
 	shipModel = obj::loadModelFromFile("models/spaceship.obj");
-	textureAsteroid = Core::LoadTexture("textures/asteroid.png");
+
 	firstMouse = true;
 	
-	
-	cubemapTexture = loadCubemap(faces);
+	cubemapTexture = Skybox::loadCubemap(faces);
+	initAsteroids();
 
 	//Core::setA(1);
 	//std::cout << Core::getA();
-
-	for (int i = 0; i < MAX_PLANET_COUNT; i++)
-	{
-		planetScales[i] = glm::scale(glm::vec3(glm::linearRand(1.f, 8.f)));
-		planetPositions[i] = glm::ballRand(100.f);
-	}
-
 }
 
 void shutdown()
@@ -407,7 +284,8 @@ void shutdown()
 	shaderLoader.DeleteProgram(programColor);
 	shaderLoader.DeleteProgram(programTexture);
 	shaderLoader.DeleteProgram(programSkybox);
-	shaderLoader.DeleteProgram(programCubemap);
+	shaderLoader.DeleteProgram(programExplode);
+	shaderLoader.DeleteProgram(programStatic);
 }
 
 void idle()
@@ -416,8 +294,7 @@ void idle()
 }
 
 void onReshape(int width, int height)
-{
-	//frustumScale = (float)width / (float)height;
+{	
 	glViewport(0, 0, width, height);
 }
 
