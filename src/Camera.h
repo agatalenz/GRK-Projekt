@@ -5,8 +5,7 @@
 
 namespace Core
 {
-	void setA(int x);
-	int getA();
+	void setFrustumScale(float x = 1.1f);
 	glm::mat4 createPerspectiveMatrix(float zNear = 0.1f, float zFar = 1000.0f);
 
 	// position - pozycja kamery

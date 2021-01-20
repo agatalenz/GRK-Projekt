@@ -1,14 +1,11 @@
 #include "Camera.h"
-int a;
-void setA(int x) {
-	a = x;
-}
-int getA() {
-	return a;
-}
+float frustumScale = 1.1f;
+void setFrustumScale(float x) {
+	frustumScale =  x;
+};
+
 glm::mat4 Core::createPerspectiveMatrix(float zNear, float zFar)
 {
-	const float frustumScale = 1.1f;
 	glm::mat4 perspective;
 	perspective[0][0] = frustumScale;
 	perspective[1][1] = frustumScale;
