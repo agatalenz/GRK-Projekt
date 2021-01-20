@@ -30,6 +30,9 @@ std::vector<GLuint> asteroidTextures;
 std::vector<obj::Model> asteroidModels;
 std::vector<Asteroid> asteroids;
 
+GLuint textureShip;
+GLuint textureShipNormal;
+
 GLuint cubemapTexture;
 GLuint skyboxVAO, skyboxVBO;
 
@@ -37,6 +40,7 @@ Core::Shader_Loader shaderLoader;
 
 obj::Model shipModel;
 obj::Model sphereModel;
+
 
 glm::vec3 cameraPos = glm::vec3(0, 0, 0);
 glm::vec3 cameraDir; // Wektor "do przodu" kamery
@@ -66,12 +70,12 @@ glm::quat rotationZ = glm::angleAxis(glm::radians(0.f), glm::vec3(0, 0, 1));
 
 std::vector<std::string> faces
 {
-	"textures/space.jpg",
-	"textures/space.jpg",
-	"textures/space.jpg",
-	"textures/space.jpg",
-	"textures/space.jpg",
-	"textures/space.jpg",	
+	"textures/skybox/space.jpg",
+	"textures/skybox/space.jpg",
+	"textures/skybox/space.jpg",
+	"textures/skybox/space.jpg",
+	"textures/skybox/space.jpg",
+	"textures/skybox/space.jpg",	
 };
 
 void drawHealth4(float health) {
@@ -178,14 +182,15 @@ void drawObjectTexture(obj::Model * model, glm::mat4 modelMatrix, GLuint texture
 	glUseProgram(0);
 }
 
-void drawObjectExplode(obj::Model* model, glm::mat4 modelMatrix, glm::vec3 color)
+void drawObjectExplode(obj::Model* model, glm::mat4 modelMatrix, GLuint textureId)
 {
 	GLuint program = programExplode;
 
 	glUseProgram(program);
 
-	glUniform3f(glGetUniformLocation(program, "objectColor"), color.x, color.y, color.z);
+	//glUniform3f(glGetUniformLocation(program, "objectColor"), color.x, color.y, color.z);
 	glUniform3f(glGetUniformLocation(program, "lightDir"), lightDir.x, lightDir.y, lightDir.z);
+	Core::SetActiveTexture(textureId, "textureSampler", program, 0);
 	glUniform1f(glGetUniformLocation(program, "time"), expl_time);
 	expl_time += expl_speed;
 
@@ -210,12 +215,15 @@ void renderScene()
 
 	glm::mat4 shipInitialTransformation = glm::translate(glm::vec3(0, -0.25f, 0)) * glm::rotate(glm::radians(180.0f), glm::vec3(0, 1, 0)) * glm::scale(glm::vec3(0.25f));
 	glm::mat4 shipModelMatrix = glm::translate(cameraPos + cameraDir * 0.5f) * glm::mat4_cast(glm::inverse(rotation)) * shipInitialTransformation;
+	
+	
+
 	if (!explode) {
-		drawObjectColor(&shipModel, shipModelMatrix, glm::vec3(0.6f));		
+		drawObjectExplode(&shipModel, shipModelMatrix* glm::scale(glm::vec3(0.075f)), textureShip);
 		expl_time = 0.0;
 	}
 	else if (expl_time <= 2.0){
-		drawObjectExplode(&shipModel, shipModelMatrix, glm::vec3(0.6f));
+		drawObjectExplode(&shipModel, shipModelMatrix* glm::scale(glm::vec3(0.075f)), textureShip);
 	}	
 
 
@@ -268,7 +276,9 @@ void init()
 	programStatic = shaderLoader.CreateProgram("shaders/shader_hp.vert", "shaders/shader_hp.frag");
 	programExplode = shaderLoader.CreateProgram("shaders/shader_explode.vert", "shaders/shader_explode.frag", "shaders/shader_explode.geom");
 	sphereModel = obj::loadModelFromFile("models/sphere.obj");
-	shipModel = obj::loadModelFromFile("models/spaceship.obj");
+	shipModel = obj::loadModelFromFile("models/spaceship_cruiser.obj");
+	textureShip = Core::LoadTexture("textures/ship/cruiser01_diffuse.png");
+	textureShipNormal = Core::LoadTexture("textures/ship/cruiser01_specular.png");
 
 	firstMouse = true;
 	
