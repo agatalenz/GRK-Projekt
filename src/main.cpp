@@ -219,7 +219,7 @@ void renderScene()
 	
 
 	if (!explode) {
-		drawObjectExplode(&shipModel, shipModelMatrix* glm::scale(glm::vec3(0.075f)), textureShip);
+		drawObjectTexture(&shipModel, shipModelMatrix* glm::scale(glm::vec3(0.075f)), textureShip);
 		expl_time = 0.0;
 	}
 	else if (expl_time <= 2.0){

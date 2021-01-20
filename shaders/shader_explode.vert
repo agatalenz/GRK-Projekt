@@ -13,6 +13,7 @@ out VS_OUT {
 } vs_out;
 
 out vec3 interpNormal;
+out vec2 TexCoords;
 
 
 
@@ -22,4 +23,5 @@ void main()
     vs_out.normal = vertexNormal;
 	gl_Position = modelViewProjectionMatrix * vec4(vertexPosition, 1.0);    
 	interpNormal = (modelMatrix * vec4(vertexNormal, 0.0)).xyz;
+    TexCoords = vertexTexCoord;
 }

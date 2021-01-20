@@ -26,6 +26,7 @@ vec3 GetNormal()
 }
 
 out vec3 interpNormal;
+out vec2 interpTexCoord;
 uniform mat4 modelViewProjectionMatrix;
 uniform mat4 modelMatrix;
 
