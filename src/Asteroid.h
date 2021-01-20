@@ -1,22 +1,23 @@
 #pragma once
 
+#include "Texture.h"
 #include "glm.hpp"
 #include "objload.h"
-#include <ext.hpp>
 #include <glew.h>
-#include <string>
-#include <iostream>
+#include <ext.hpp>
 #include <filesystem>
-#include <ctime>
-#include <vector>
+
+namespace fs = std::filesystem;
 
 class Asteroid
 {
-public:
 
+public:
 	GLuint Texture;
 	obj::Model Model;
 	glm::mat4 Coordinates;
 
 	Asteroid::Asteroid(glm::vec3 coordinates, GLuint texture, obj::Model model);
 };
+
+float GetRandomFloat(float from, float to);
