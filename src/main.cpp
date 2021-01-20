@@ -272,7 +272,7 @@ void init()
 
 	firstMouse = true;
 	
-	cubemapTexture = loadCubemap(faces);
+	cubemapTexture = Skybox::loadCubemap(faces);
 	initAsteroids();
 
 	//Core::setA(1);
