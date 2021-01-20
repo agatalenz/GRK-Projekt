@@ -332,14 +332,16 @@ void renderScene()
 	glm::mat4 shipInitialTransformation = glm::translate(glm::vec3(0, -0.25f, 0)) * glm::rotate(glm::radians(180.0f), glm::vec3(0, 1, 0)) * glm::scale(glm::vec3(0.25f));
 	glm::mat4 shipModelMatrix = glm::translate(cameraPos + cameraDir * 0.5f) * glm::mat4_cast(glm::inverse(rotation)) * shipInitialTransformation;
 	
+
 	//if (!explode) {
-	//	drawObjectExplode(&shipModel, shipModelMatrix* glm::scale(glm::vec3(0.075f)), textureShip);
+	//	drawObjectTexture(&shipModel, shipModelMatrix* glm::scale(glm::vec3(0.075f)), textureShip);
 	//	expl_time = 0.0;
 	//}
 	//else if (expl_time <= 2.0){
 	//	drawObjectExplode(&shipModel, shipModelMatrix* glm::scale(glm::vec3(0.075f)), textureShip);
 	//}	
 	drawObjectTextureFromContext(renderables[0]->context, shipModelMatrix* glm::scale(glm::vec3(0.075f)), renderables[0]->textureId);
+
 
 	for (Asteroid asteroid : asteroids) {
 
