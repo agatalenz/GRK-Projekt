@@ -26,8 +26,8 @@ GLuint programExplode;
 
 Core::RenderContext shipContext;
 
-const float RADIUS = 200.f;
-const int ASTEROIDS_NUMBER = 200;
+const float RADIUS = 100.f;
+const int ASTEROIDS_NUMBER = 50;
 
 std::vector<GLuint> asteroidTextures;
 std::vector<obj::Model> asteroidModels;
@@ -284,7 +284,7 @@ void drawObjectTextureFromContext(Core::RenderContext * context, glm::mat4 model
 	glUseProgram(0);
 }
 
-void drawObjectExplode(obj::Model* model, glm::mat4 modelMatrix, GLuint textureId)
+void drawObjectExplode(Core::RenderContext* context, glm::mat4 modelMatrix, GLuint textureId)
 {
 	GLuint program = programExplode;
 
@@ -300,7 +300,7 @@ void drawObjectExplode(obj::Model* model, glm::mat4 modelMatrix, GLuint textureI
 	glUniformMatrix4fv(glGetUniformLocation(program, "modelViewProjectionMatrix"), 1, GL_FALSE, (float*)&transformation);
 	glUniformMatrix4fv(glGetUniformLocation(program, "modelMatrix"), 1, GL_FALSE, (float*)&modelMatrix);
 
-	Core::DrawModel(model);
+	Core::DrawContext(*context);
 
 	glUseProgram(0);
 }
@@ -333,14 +333,14 @@ void renderScene()
 	glm::mat4 shipModelMatrix = glm::translate(cameraPos + cameraDir * 0.5f) * glm::mat4_cast(glm::inverse(rotation)) * shipInitialTransformation;
 	
 
-	//if (!explode) {
-	//	drawObjectTexture(&shipModel, shipModelMatrix* glm::scale(glm::vec3(0.075f)), textureShip);
-	//	expl_time = 0.0;
-	//}
-	//else if (expl_time <= 2.0){
-	//	drawObjectExplode(&shipModel, shipModelMatrix* glm::scale(glm::vec3(0.075f)), textureShip);
-	//}	
-	drawObjectTextureFromContext(renderables[0]->context, shipModelMatrix* glm::scale(glm::vec3(0.075f)), renderables[0]->textureId);
+	if (!explode) {
+		drawObjectTextureFromContext(renderables[0]->context, shipModelMatrix * glm::scale(glm::vec3(0.075f)), renderables[0]->textureId);
+		expl_time = 0.0;
+	}
+	else if (expl_time <= 2.0){
+		drawObjectExplode(renderables[0]->context, shipModelMatrix* glm::scale(glm::vec3(0.075f)), renderables[0]->textureId);
+	}	
+	//drawObjectTextureFromContext(renderables[0]->context, shipModelMatrix* glm::scale(glm::vec3(0.075f)), renderables[0]->textureId);
 
 
 	for (Asteroid asteroid : asteroids) {
@@ -393,7 +393,7 @@ void init()
 	programExplode = shaderLoader.CreateProgram("shaders/shader_explode.vert", "shaders/shader_explode.frag", "shaders/shader_explode.geom");
 	//sphereModel = obj::loadModelFromFile("models/sphere.obj");
 	//shipModel = obj::loadModelFromFile("models/spaceship_cruiser.obj");
-	/*textureShip = Core::LoadTexture("textures/ship/cruiser01_diffuse.png");*/
+	textureShip = Core::LoadTexture("textures/ship/cruiser01_diffuse.png");
 	textureShipNormal = Core::LoadTexture("textures/ship/cruiser01_secular.png");
 
 	firstMouse = true;
