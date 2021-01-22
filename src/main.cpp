@@ -17,6 +17,8 @@
 #include "stb_image.h"
 #include "Asteroid.h"
 
+int windowWidth = 600;
+int windowHeight = 600;
 GLuint programColor;
 GLuint programTexture;
 GLuint programCubemap;
@@ -160,21 +162,6 @@ std::vector<std::string> faces
 	"textures/skybox/space.jpg",	
 };
 
-void drawHealth4(float health) {
-	const int numDiv = 15;
-	const float sep = 0.02f;
-	const float barHeight = 0.5f / (float)numDiv;
-	glBegin(GL_QUADS);
-	glColor3f(1, 0, 0);
-	for (float i = 0; i < health; i += (sep + barHeight)) {
-		glVertex2f(0, i);
-		glVertex2f(0.1f, i);
-		glVertex2f(0.1f, i + barHeight);
-		glVertex2f(0, i + barHeight);
-	}
-	glEnd();
-}
-
 void keyboard(unsigned char key, int x, int y)
 {
 	
@@ -304,6 +291,64 @@ void drawObjectExplode(Core::RenderContext* context, glm::mat4 modelMatrix, GLui
 
 	glUseProgram(0);
 }
+void printShop(std::string text) {
+	glDisable(GL_TEXTURE_2D); //added this
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	gluOrtho2D(0.0, 600, 0.0, 600);
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	glLoadIdentity();
+	glRasterPos2i(10, windowHeight-50);
+	std::string s = text;
+	void * font = GLUT_BITMAP_9_BY_15;
+	for (std::string::iterator i = s.begin(); i != s.end(); ++i)
+	{
+		char c = *i;
+		glColor3d(1.0, 0.0, 0.0);
+		glutBitmapCharacter(font, c);
+	}
+	glMatrixMode(GL_PROJECTION); //swapped this with...
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW); //...this
+	glPopMatrix();
+	//added this
+	glEnable(GL_TEXTURE_2D);
+}
+
+void drawHealth(float health) {
+
+	const int numDiv = 15;
+	const float sep = 0.02f;
+	const float barHeight = 0.5f / (float)numDiv;
+	glBegin(GL_QUADS);
+	glColor3f(1, 0, 0);
+	for (float i = 0; i < health; i += (sep + barHeight)) {
+		glVertex2f(0, i);
+		glVertex2f(0.1f, i);
+		glVertex2f(0.1f, i + barHeight);
+		glVertex2f(0, i + barHeight);
+	}
+	glEnd();
+}
+
+void drawStaticScene() {
+	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
+		1, GL_FALSE, (float*)&glm::translate(glm::vec3(0.95f - 0.1f, -0.95f, 0.f)));
+	glm::vec3 color = glm::vec3(255, 0, 0);
+	glUniform3f(glGetUniformLocation(programStatic, "objectColor"), color.x, color.y, color.z);
+	drawHealth(0.3f);
+	color = glm::vec3(255, 255, 0);
+	glUniform3f(glGetUniformLocation(programStatic, "objectColor"), color.x, color.y, color.z);
+	printShop("Weapon:          Armor:          ");
+	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
+		1, GL_FALSE, (float*)&glm::translate(glm::vec3(-0.8f + 0.1f, 0.83f, 0.f)));
+	drawHealth(0.1f);
+	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
+		1, GL_FALSE, (float*)&glm::translate(glm::vec3(-0.32f + 0.1f, 0.83f, 0.f)));
+	drawHealth(0.05f);
+}
 
 void renderScene()
 {	
@@ -351,11 +396,9 @@ void renderScene()
 	Skybox::drawSkybox(programSkybox, cameraMatrix, perspectiveMatrix, cubemapTexture);		
 	
 	glUseProgram(programStatic);
-	glm::mat4 translation = glm::translate(glm::vec3(0.95f - 0.1f, -0.95f, 0.f));
-	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
-		1, GL_FALSE, (float*)&translation);
-	drawHealth4(0.3f);
+	drawStaticScene();
 	glUseProgram(0);
+
 	glutSwapBuffers();
 }
 
@@ -431,7 +474,7 @@ int main(int argc, char ** argv)
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
 	glutInitWindowPosition(200, 200);
-	glutInitWindowSize(600, 600);
+	glutInitWindowSize(windowWidth, windowHeight);
 	glutCreateWindow("Space shitter");
 	glewInit();
 	glutSetCursor(GLUT_CURSOR_NONE);
