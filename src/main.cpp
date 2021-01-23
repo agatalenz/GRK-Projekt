@@ -20,7 +20,7 @@
 #include <irrKlang.h>
 
 using namespace irrklang;
-#pragma comment(lib, "irrKlang.lib") // chuj wie co to robi
+//#pragma comment(lib, "irrKlang.lib") // chuj wie co to robi // już nic hehe bo skomentowane
 
 ISoundEngine* SoundEngine = createIrrKlangDevice();
 
@@ -63,6 +63,9 @@ glm::mat4 cameraMatrix, perspectiveMatrix;
 glm::vec3 lightDir = glm::normalize(glm::vec3(1.0f, -0.9f, -1.0f));
 
 glm::quat rotation = glm::quat(1, 0, 0, 0);
+
+
+int amountHp, amountArmor, amountWeapon, amountSources;
 
 //PhysX init
 Physics pxScene(0.f);
@@ -169,6 +172,73 @@ std::vector<std::string> faces
 	"textures/skybox/space.jpg",	
 };
 
+void onHit() {
+	amountHp++;
+}
+
+void sourceGrab() {
+	amountSources++;
+}
+
+void upArmor() {
+	if (amountArmor < 4) {
+		int currentBalance = amountSources;
+		switch (amountArmor) {
+		case 1:
+			if (currentBalance >= 10) {
+				amountArmor++;
+				currentBalance -= 10;
+				//setWeaponStrength(weaponStrength++)
+			};
+			break;
+		case 2:
+			if (currentBalance >= 20) {
+				amountArmor++;
+				currentBalance -= 20;
+			};
+			break;
+		case 3:
+			if (currentBalance >= 30) {
+				amountArmor++;
+				currentBalance -= 30;
+			};
+			break;
+		}
+		amountSources = currentBalance;
+	}
+}
+
+void upWeapon() {
+	if (amountWeapon < 4) {
+		int currentBalance = amountSources;
+		switch (amountWeapon) {
+		case 1:
+			if (currentBalance >= 10) {
+				amountWeapon++;
+				currentBalance -= 10;
+			};
+			break;
+		case 2:
+			if (currentBalance >= 20) {
+				amountWeapon++;
+				currentBalance -= 20;
+			};
+			break;
+		case 3:
+			if (currentBalance >= 30) {
+				amountWeapon++;
+				currentBalance -= 30;
+			};
+			break;
+		}
+		amountSources = currentBalance;
+	}
+}
+void addCash() {
+	//just to test
+	amountSources++;
+}
+
 void keyboard(unsigned char key, int x, int y)
 {
 	
@@ -184,6 +254,9 @@ void keyboard(unsigned char key, int x, int y)
 	case 'a': cameraPos -= cameraSide * moveSpeed; break;
 	case 'e': explode = true; break;
 	case 'r': explode = false; break;
+	case '1': upWeapon(); break;
+	case '2': upArmor(); break;
+	case '3': addCash(); break;
 	}
 }
 
@@ -377,14 +450,14 @@ void drawStaticScene(int hp, int weapon, int armor, int sources) {
 	color = glm::vec3(255, 255, 0);
 	glUniform3f(glGetUniformLocation(programStatic, "objectColor"), color.x, color.y, color.z);
 
-	printShop("Weapon:", 1, 88);
-	translateVec = glm::vec3(simple(12.5f), simple(88), 0.f);
+	printShop("[1] Weapon:", 1, 88);
+	translateVec = glm::vec3(simple(18.5f), simple(88), 0.f);
 	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
 		1, GL_FALSE, (float*)&glm::translate(translateVec));
 	drawHealth(_weapon);
 
-	printShop("Armor:", 26, 88);
-	translateVec = glm::vec3(simple(36), simple(88), 0.f);
+	printShop("[2] Armor:", 26, 88);
+	translateVec = glm::vec3(simple(42), simple(88), 0.f);
 	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
 		1, GL_FALSE, (float*)&glm::translate(translateVec));
 	drawHealth(_armor);
@@ -438,7 +511,7 @@ void renderScene()
 	Skybox::drawSkybox(programSkybox, cameraMatrix, perspectiveMatrix, cubemapTexture);		
 	
 	glUseProgram(programStatic);
-	drawStaticScene(5,4,3, 30);
+	drawStaticScene(amountHp, amountWeapon, amountArmor, amountSources);
 	glUseProgram(0);
 
 	glutSwapBuffers();
@@ -467,6 +540,13 @@ void initAsteroids() {
 	}
 }
 
+void initStatic() {
+	amountHp = 5;
+	amountWeapon = 1;
+	amountArmor = 1;
+	amountSources = 30;
+}
+
 void init()
 {
 	srand(time(0));
@@ -479,13 +559,15 @@ void init()
 	textureShip = Core::LoadTexture("textures/ship/cruiser01_diffuse.png");
 	textureShipNormal = Core::LoadTexture("textures/ship/cruiser01_secular.png");
 	irrklang::ISound* snd = SoundEngine->play2D("dependencies/irrklang/media/theme.mp3", true, false, true);
-	snd->setVolume(0.009f);
+	//snd->setVolume(0.009f); komentuje tylko żeby sobie posłuchać głosniej
+	snd->setVolume(0.04f);
 	firstMouse = true;
-	
+
 	cubemapTexture = Skybox::loadCubemap(faces);
 	initAsteroids();
 	initRenderables();
 	initPhysicsScene();
+	initStatic();
 	//Core::setA(1);
 	//std::cout << Core::getA();
 }
