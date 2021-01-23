@@ -137,4 +137,9 @@
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <Library Include="src\irrKlang.lib">
+      <Filter>Source Files</Filter>
+    </Library>
+  </ItemGroup>
 </Project>

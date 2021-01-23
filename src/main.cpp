@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cmath>
 #include <vector>
+#include <map>
 
 #include "Skybox.h"
 #include "Shader_Loader.h"
@@ -16,6 +17,12 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "Asteroid.h"
+#include <irrKlang.h>
+
+using namespace irrklang;
+#pragma comment(lib, "irrKlang.lib") // chuj wie co to robi
+
+ISoundEngine* SoundEngine = createIrrKlangDevice();
 
 int windowWidth = 600;
 int windowHeight = 600;
@@ -291,7 +298,7 @@ void drawObjectExplode(Core::RenderContext* context, glm::mat4 modelMatrix, GLui
 
 	glUseProgram(0);
 }
-void printShop(std::string text) {
+void printShop(std::string text, int x, int y) {
 	glDisable(GL_TEXTURE_2D); //added this
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();
@@ -300,20 +307,18 @@ void printShop(std::string text) {
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
 	glLoadIdentity();
-	glRasterPos2i(10, windowHeight-50);
+	glRasterPos2i(0.01*x*windowWidth, 0.01*y*windowHeight);
 	std::string s = text;
 	void * font = GLUT_BITMAP_9_BY_15;
 	for (std::string::iterator i = s.begin(); i != s.end(); ++i)
 	{
 		char c = *i;
-		glColor3d(1.0, 0.0, 0.0);
 		glutBitmapCharacter(font, c);
 	}
-	glMatrixMode(GL_PROJECTION); //swapped this with...
+	glMatrixMode(GL_PROJECTION);
 	glPopMatrix();
-	glMatrixMode(GL_MODELVIEW); //...this
+	glMatrixMode(GL_MODELVIEW);
 	glPopMatrix();
-	//added this
 	glEnable(GL_TEXTURE_2D);
 }
 
@@ -323,7 +328,6 @@ void drawHealth(float health) {
 	const float sep = 0.02f;
 	const float barHeight = 0.5f / (float)numDiv;
 	glBegin(GL_QUADS);
-	glColor3f(1, 0, 0);
 	for (float i = 0; i < health; i += (sep + barHeight)) {
 		glVertex2f(0, i);
 		glVertex2f(0.1f, i);
@@ -333,21 +337,59 @@ void drawHealth(float health) {
 	glEnd();
 }
 
-void drawStaticScene() {
+float simple(float n) {
+	//żeby tekst i paski dało się w takiej samej konwencji
+	return (-1.f+0.02f*n);
+};
+
+void drawStaticScene(int hp, int weapon, int armor, int sources) {
+	std::map<int, float> bar = {
+	{ 1, 0.05f },
+	{ 2, 0.1f },
+	{ 3, 0.15f },
+	{ 4, 0.2f },
+	{ 5, 0.25f },
+	{ 6, 0.3f },
+	{ 7, 0.35f },
+	{ 8, 0.4f },
+	{ 9, 0.45f },
+	{ 10, 0.5f }
+	};
+	if (weapon > 4) {
+		weapon = 4;
+	};
+	if (armor > 4) {
+		armor = 4;
+	};
+	if (hp > 10) {
+		hp = 10;
+	};
+	float _hp = bar[hp];
+	float _weapon = bar[weapon];
+	float _armor = bar[armor];
+	glm::vec3 translateVec = glm::vec3(simple(92), simple(3), 0.f);
 	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
-		1, GL_FALSE, (float*)&glm::translate(glm::vec3(0.95f - 0.1f, -0.95f, 0.f)));
+		1, GL_FALSE, (float*)&glm::translate(translateVec));
+
 	glm::vec3 color = glm::vec3(255, 0, 0);
 	glUniform3f(glGetUniformLocation(programStatic, "objectColor"), color.x, color.y, color.z);
-	drawHealth(0.3f);
+	drawHealth(_hp);
 	color = glm::vec3(255, 255, 0);
 	glUniform3f(glGetUniformLocation(programStatic, "objectColor"), color.x, color.y, color.z);
-	printShop("Weapon:          Armor:          ");
+
+	printShop("Weapon:", 1, 88);
+	translateVec = glm::vec3(simple(12.5f), simple(88), 0.f);
 	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
-		1, GL_FALSE, (float*)&glm::translate(glm::vec3(-0.8f + 0.1f, 0.83f, 0.f)));
-	drawHealth(0.1f);
+		1, GL_FALSE, (float*)&glm::translate(translateVec));
+	drawHealth(_weapon);
+
+	printShop("Armor:", 26, 88);
+	translateVec = glm::vec3(simple(36), simple(88), 0.f);
 	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
-		1, GL_FALSE, (float*)&glm::translate(glm::vec3(-0.32f + 0.1f, 0.83f, 0.f)));
-	drawHealth(0.05f);
+		1, GL_FALSE, (float*)&glm::translate(translateVec));
+	drawHealth(_armor);
+	std::string src = std::to_string(sources);
+	printShop(src, 92, 92);
 }
 
 void renderScene()
@@ -396,7 +438,7 @@ void renderScene()
 	Skybox::drawSkybox(programSkybox, cameraMatrix, perspectiveMatrix, cubemapTexture);		
 	
 	glUseProgram(programStatic);
-	drawStaticScene();
+	drawStaticScene(5,4,3, 30);
 	glUseProgram(0);
 
 	glutSwapBuffers();
@@ -434,11 +476,10 @@ void init()
 	programSkybox = shaderLoader.CreateProgram("shaders/shader_skybox.vert", "shaders/shader_skybox.frag");
 	programStatic = shaderLoader.CreateProgram("shaders/shader_hp.vert", "shaders/shader_hp.frag");
 	programExplode = shaderLoader.CreateProgram("shaders/shader_explode.vert", "shaders/shader_explode.frag", "shaders/shader_explode.geom");
-	//sphereModel = obj::loadModelFromFile("models/sphere.obj");
-	//shipModel = obj::loadModelFromFile("models/spaceship_cruiser.obj");
 	textureShip = Core::LoadTexture("textures/ship/cruiser01_diffuse.png");
 	textureShipNormal = Core::LoadTexture("textures/ship/cruiser01_secular.png");
-
+	irrklang::ISound* snd = SoundEngine->play2D("dependencies/irrklang/media/theme.mp3", true, false, true);
+	snd->setVolume(0.009f);
 	firstMouse = true;
 	
 	cubemapTexture = Skybox::loadCubemap(faces);
