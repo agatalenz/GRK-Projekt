@@ -18,8 +18,7 @@
 #include "stb_image.h"
 #include "Asteroid.h"
 #include <irrKlang.h>
-
-#include "../ParticleEmiter.h"
+#include "ParticleEmiter.h"
 // obj
 ParticleEmitter* particleEmitter_LeftEngine;
 ParticleEmitter* particleEmitter_RightEngine;
