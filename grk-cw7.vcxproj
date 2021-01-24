@@ -11,6 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ParticleEmiter.cpp" />
     <ClCompile Include="src\Asteroid.cpp" />
     <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\main.cpp" />
@@ -24,6 +25,7 @@
     <ClCompile Include="src\Texture.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ParticleEmiter.h" />
     <ClInclude Include="src\Asteroid.h" />
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\objload.h" />
@@ -38,6 +40,8 @@
     <ClInclude Include="src\Texture.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shaders\part.frag" />
+    <None Include="shaders\part.vert" />
     <None Include="shaders\shader_color.frag" />
     <None Include="shaders\shader_color.vert" />
     <None Include="shaders\shader_cubemap.frag" />
