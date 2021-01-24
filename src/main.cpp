@@ -18,6 +18,18 @@
 #include "stb_image.h"
 #include "Asteroid.h"
 #include <irrKlang.h>
+#include "ParticleEmiter.h"
+// obj
+ParticleEmitter* particleEmitter_LeftEngine;
+ParticleEmitter* particleEmitter_RightEngine;
+// offset
+const glm::vec3 engineOffset = glm::vec3(-0.23f, -0.08f, -0.4f);
+const glm::mat4 engineRotation = glm::rotate(glm::radians(90.0f), glm::vec3(1, 0, 0));
+// particle program
+GLuint programEngineParticle;
+// ...
+
+
 
 using namespace irrklang;
 //#pragma comment(lib, "irrKlang.lib") // chuj wie co to robi // już nic hehe bo skomentowane
@@ -44,6 +56,7 @@ std::vector<Asteroid> asteroids;
 
 GLuint textureShip;
 GLuint textureShipNormal;
+GLuint texturePlanet;
 
 GLuint cubemapTexture;
 GLuint skyboxVAO, skyboxVBO;
@@ -238,6 +251,7 @@ void addCash() {
 	//just to test
 	amountSources++;
 }
+bool engineON;
 
 void keyboard(unsigned char key, int x, int y)
 {
@@ -248,8 +262,8 @@ void keyboard(unsigned char key, int x, int y)
 	{	
 	case 'z': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, 1))* rotation; break;
 	case 'x': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, -1))* rotation; break;
-	case 'w': cameraPos += cameraDir * moveSpeed; break;
-	case 's': cameraPos -= cameraDir * moveSpeed; break;
+	case 'w': cameraPos += cameraDir * moveSpeed; engineON = true; break;
+	case 's': cameraPos -= cameraDir * moveSpeed; engineON = false; break;
 	case 'd': cameraPos += cameraSide * moveSpeed; break;
 	case 'a': cameraPos -= cameraSide * moveSpeed; break;
 	case 'e': explode = true; break;
@@ -465,6 +479,22 @@ void drawStaticScene(int hp, int weapon, int armor, int sources) {
 	printShop(src, 92, 92);
 }
 
+void drawPlanets() {
+	//glUseProgram(programTexture);
+	//double time = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
+	//glm::mat4 translation = glm::translate(glm::vec3(0.0f, -0.5f, -2.0f));
+	//glm::mat4 rotation = glm::rotate(time, glm::vec3(0.0f, 0.5f, 0.0f));
+	//glm::mat4 transformation = perspectiveMatrix * cameraMatrix * glm::translate(glm::vec3(-1.f, 0, 1.f));
+	//drawObjectTexture(sphereModel, glm::rotate(time / 2.0f, glm::vec3(0.0f, 0.5f, 0.0f)) * glm::translate(glm::vec3(2, 1, 5)), texturePlanet);
+
+	//drawObjectTexture(sphereModel, rotation * glm::translate(glm::vec3(-2, 0, -2)), texturePlanet);
+	//glUniformMatrix4fv(glGetUniformLocation(programTexture, "transformation"), 1, GL_FALSE, (float*)&transformation);
+
+	//drawObjectTexture(sphereModel, glm::rotate(time / 2.f, glm::vec3(0.0f, 0.5f, 0.0f)) * glm::translate(glm::vec3(2, 1, 5))* glm::translate(glm::vec3(1.5f, 0.5, 0)) * glm::scale(glm::vec3(0.3f, 0.3f, 0.3f)), texturePlanet);
+	//drawObjectTexture(sphereModel, glm::translate(glm::vec3(0, 0, 0)) * glm::scale(glm::vec3(1.3f, 1.3f, 1.3f)), texturePlanet);
+
+}
+
 void renderScene()
 {	
 	double time = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
@@ -514,6 +544,15 @@ void renderScene()
 	drawStaticScene(amountHp, amountWeapon, amountArmor, amountSources);
 	glUseProgram(0);
 
+	//chujchuj
+	if (engineON) {
+		particleEmitter_LeftEngine->update(0.01f, shipModelMatrix * glm::translate(engineOffset) * engineRotation, cameraMatrix, perspectiveMatrix);
+		particleEmitter_LeftEngine->draw();
+
+		particleEmitter_RightEngine->update(0.01f, shipModelMatrix * glm::translate(engineOffset - glm::vec3(engineOffset.x * 2, 0, 0)) * engineRotation, cameraMatrix, perspectiveMatrix);
+		particleEmitter_RightEngine->draw();
+	}
+	
 	glutSwapBuffers();
 }
 
@@ -562,7 +601,8 @@ void init()
 	//snd->setVolume(0.009f); komentuje tylko żeby sobie posłuchać głosniej
 	snd->setVolume(0.04f);
 	firstMouse = true;
-
+	sphereModel = obj::loadModelFromFile("models/sphere.obj");
+	texturePlanet = Core::LoadTexture("textures/asteroids/unnamed.png");
 	cubemapTexture = Skybox::loadCubemap(faces);
 	initAsteroids();
 	initRenderables();
@@ -570,6 +610,11 @@ void init()
 	initStatic();
 	//Core::setA(1);
 	//std::cout << Core::getA();
+	engineON = false;
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	programEngineParticle = shaderLoader.CreateProgram("shaders/part.vert", "shaders/part.frag");
+	particleEmitter_LeftEngine = particleEmitter_RightEngine = new ParticleEmitter(&programEngineParticle);
 }
 
 void shutdown()
@@ -579,6 +624,9 @@ void shutdown()
 	shaderLoader.DeleteProgram(programSkybox);
 	shaderLoader.DeleteProgram(programExplode);
 	shaderLoader.DeleteProgram(programStatic);
+
+	particleEmitter_LeftEngine->~ParticleEmitter();
+	particleEmitter_RightEngine->~ParticleEmitter();
 }
 
 void idle()

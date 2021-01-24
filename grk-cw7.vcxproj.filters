@@ -51,6 +51,9 @@
     <ClCompile Include="src\Physics.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ParticleEmiter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Camera.h">
@@ -87,6 +90,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\PxPhysicsAPI.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ParticleEmiter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -134,6 +140,12 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="shaders\shader_explode.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\part.vert">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\part.frag">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
