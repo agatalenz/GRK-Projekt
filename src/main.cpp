@@ -394,7 +394,7 @@ void printShop(std::string text, int x, int y) {
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
 	glLoadIdentity();
-	glRasterPos2i(0.01*x*windowWidth, 0.01*y*windowHeight);
+	glWindowPos2i(0.01*x*windowWidth, 0.01*y*windowHeight);
 	std::string s = text;
 	void * font = GLUT_BITMAP_9_BY_15;
 	for (std::string::iterator i = s.begin(); i != s.end(); ++i)
