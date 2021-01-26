@@ -51,7 +51,10 @@
     <ClCompile Include="src\Physics.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ParticleEmiter.cpp">
+    <ClCompile Include="src\ParticleEmiter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ParticleEmiterTex.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -92,7 +95,10 @@
     <ClInclude Include="src\PxPhysicsAPI.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ParticleEmiter.h">
+    <ClInclude Include="src\ParticleEmiter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ParticleEmiterTex.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -146,6 +152,12 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="shaders\part.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\part_tex.frag">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\part_tex.vert">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
