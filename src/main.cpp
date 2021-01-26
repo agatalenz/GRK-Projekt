@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cmath>
 #include <vector>
+#include <map>
 
 #include "Skybox.h"
 #include "Shader_Loader.h"
@@ -16,6 +17,24 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "Asteroid.h"
+#include <irrKlang.h>
+#include "ParticleEmiter.h"
+// obj
+ParticleEmitter* particleEmitter_LeftEngine;
+ParticleEmitter* particleEmitter_RightEngine;
+// offset
+const glm::vec3 engineOffset = glm::vec3(-0.23f, -0.08f, -0.4f);
+const glm::mat4 engineRotation = glm::rotate(glm::radians(90.0f), glm::vec3(1, 0, 0));
+// particle program
+GLuint programEngineParticle;
+// ...
+
+
+
+using namespace irrklang;
+//#pragma comment(lib, "irrKlang.lib") // chuj wie co to robi // już nic hehe bo skomentowane
+
+ISoundEngine* SoundEngine = createIrrKlangDevice();
 
 int windowWidth = 600;
 int windowHeight = 600;
@@ -37,6 +56,7 @@ std::vector<Asteroid> asteroids;
 
 GLuint textureShip;
 GLuint textureShipNormal;
+GLuint texturePlanet;
 
 GLuint cubemapTexture;
 GLuint skyboxVAO, skyboxVBO;
@@ -56,6 +76,9 @@ glm::mat4 cameraMatrix, perspectiveMatrix;
 glm::vec3 lightDir = glm::normalize(glm::vec3(1.0f, -0.9f, -1.0f));
 
 glm::quat rotation = glm::quat(1, 0, 0, 0);
+
+
+int amountHp, amountArmor, amountWeapon, amountSources;
 
 //PhysX init
 Physics pxScene(0.f);
@@ -162,6 +185,74 @@ std::vector<std::string> faces
 	"textures/skybox/space.jpg",	
 };
 
+void onHit() {
+	amountHp++;
+}
+
+void sourceGrab() {
+	amountSources++;
+}
+
+void upArmor() {
+	if (amountArmor < 4) {
+		int currentBalance = amountSources;
+		switch (amountArmor) {
+		case 1:
+			if (currentBalance >= 10) {
+				amountArmor++;
+				currentBalance -= 10;
+				//setWeaponStrength(weaponStrength++)
+			};
+			break;
+		case 2:
+			if (currentBalance >= 20) {
+				amountArmor++;
+				currentBalance -= 20;
+			};
+			break;
+		case 3:
+			if (currentBalance >= 30) {
+				amountArmor++;
+				currentBalance -= 30;
+			};
+			break;
+		}
+		amountSources = currentBalance;
+	}
+}
+
+void upWeapon() {
+	if (amountWeapon < 4) {
+		int currentBalance = amountSources;
+		switch (amountWeapon) {
+		case 1:
+			if (currentBalance >= 10) {
+				amountWeapon++;
+				currentBalance -= 10;
+			};
+			break;
+		case 2:
+			if (currentBalance >= 20) {
+				amountWeapon++;
+				currentBalance -= 20;
+			};
+			break;
+		case 3:
+			if (currentBalance >= 30) {
+				amountWeapon++;
+				currentBalance -= 30;
+			};
+			break;
+		}
+		amountSources = currentBalance;
+	}
+}
+void addCash() {
+	//just to test
+	amountSources++;
+}
+bool engineON;
+
 void keyboard(unsigned char key, int x, int y)
 {
 	
@@ -171,12 +262,15 @@ void keyboard(unsigned char key, int x, int y)
 	{	
 	case 'z': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, 1))* rotation; break;
 	case 'x': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, -1))* rotation; break;
-	case 'w': cameraPos += cameraDir * moveSpeed; break;
-	case 's': cameraPos -= cameraDir * moveSpeed; break;
+	case 'w': cameraPos += cameraDir * moveSpeed; engineON = true; break;
+	case 's': cameraPos -= cameraDir * moveSpeed; engineON = false; break;
 	case 'd': cameraPos += cameraSide * moveSpeed; break;
 	case 'a': cameraPos -= cameraSide * moveSpeed; break;
 	case 'e': explode = true; break;
 	case 'r': explode = false; break;
+	case '1': upWeapon(); break;
+	case '2': upArmor(); break;
+	case '3': addCash(); break;
 	}
 }
 
@@ -291,7 +385,7 @@ void drawObjectExplode(Core::RenderContext* context, glm::mat4 modelMatrix, GLui
 
 	glUseProgram(0);
 }
-void printShop(std::string text) {
+void printShop(std::string text, int x, int y) {
 	glDisable(GL_TEXTURE_2D); //added this
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();
@@ -300,20 +394,18 @@ void printShop(std::string text) {
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
 	glLoadIdentity();
-	glRasterPos2i(10, windowHeight-50);
+	glWindowPos2i(0.01*x*windowWidth, 0.01*y*windowHeight);
 	std::string s = text;
 	void * font = GLUT_BITMAP_9_BY_15;
 	for (std::string::iterator i = s.begin(); i != s.end(); ++i)
 	{
 		char c = *i;
-		glColor3d(1.0, 0.0, 0.0);
 		glutBitmapCharacter(font, c);
 	}
-	glMatrixMode(GL_PROJECTION); //swapped this with...
+	glMatrixMode(GL_PROJECTION);
 	glPopMatrix();
-	glMatrixMode(GL_MODELVIEW); //...this
+	glMatrixMode(GL_MODELVIEW);
 	glPopMatrix();
-	//added this
 	glEnable(GL_TEXTURE_2D);
 }
 
@@ -323,7 +415,6 @@ void drawHealth(float health) {
 	const float sep = 0.02f;
 	const float barHeight = 0.5f / (float)numDiv;
 	glBegin(GL_QUADS);
-	glColor3f(1, 0, 0);
 	for (float i = 0; i < health; i += (sep + barHeight)) {
 		glVertex2f(0, i);
 		glVertex2f(0.1f, i);
@@ -333,21 +424,75 @@ void drawHealth(float health) {
 	glEnd();
 }
 
-void drawStaticScene() {
+float simple(float n) {
+	//żeby tekst i paski dało się w takiej samej konwencji
+	return (-1.f+0.02f*n);
+};
+
+void drawStaticScene(int hp, int weapon, int armor, int sources) {
+	std::map<int, float> bar = {
+	{ 1, 0.05f },
+	{ 2, 0.1f },
+	{ 3, 0.15f },
+	{ 4, 0.2f },
+	{ 5, 0.25f },
+	{ 6, 0.3f },
+	{ 7, 0.35f },
+	{ 8, 0.4f },
+	{ 9, 0.45f },
+	{ 10, 0.5f }
+	};
+	if (weapon > 4) {
+		weapon = 4;
+	};
+	if (armor > 4) {
+		armor = 4;
+	};
+	if (hp > 10) {
+		hp = 10;
+	};
+	float _hp = bar[hp];
+	float _weapon = bar[weapon];
+	float _armor = bar[armor];
+	glm::vec3 translateVec = glm::vec3(simple(92), simple(3), 0.f);
 	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
-		1, GL_FALSE, (float*)&glm::translate(glm::vec3(0.95f - 0.1f, -0.95f, 0.f)));
+		1, GL_FALSE, (float*)&glm::translate(translateVec));
+
 	glm::vec3 color = glm::vec3(255, 0, 0);
 	glUniform3f(glGetUniformLocation(programStatic, "objectColor"), color.x, color.y, color.z);
-	drawHealth(0.3f);
+	drawHealth(_hp);
 	color = glm::vec3(255, 255, 0);
 	glUniform3f(glGetUniformLocation(programStatic, "objectColor"), color.x, color.y, color.z);
-	printShop("Weapon:          Armor:          ");
+
+	printShop("[1] Weapon:", 1, 88);
+	translateVec = glm::vec3(simple(18.5f), simple(88), 0.f);
 	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
-		1, GL_FALSE, (float*)&glm::translate(glm::vec3(-0.8f + 0.1f, 0.83f, 0.f)));
-	drawHealth(0.1f);
+		1, GL_FALSE, (float*)&glm::translate(translateVec));
+	drawHealth(_weapon);
+
+	printShop("[2] Armor:", 26, 88);
+	translateVec = glm::vec3(simple(42), simple(88), 0.f);
 	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
-		1, GL_FALSE, (float*)&glm::translate(glm::vec3(-0.32f + 0.1f, 0.83f, 0.f)));
-	drawHealth(0.05f);
+		1, GL_FALSE, (float*)&glm::translate(translateVec));
+	drawHealth(_armor);
+	std::string src = std::to_string(sources);
+	printShop(src, 92, 92);
+}
+
+void drawPlanets() {
+	//glUseProgram(programTexture);
+	//double time = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
+	//glm::mat4 translation = glm::translate(glm::vec3(0.0f, -0.5f, -2.0f));
+	//glm::mat4 rotation = glm::rotate(time, glm::vec3(0.0f, 0.5f, 0.0f));
+	//glm::mat4 transformation = perspectiveMatrix * cameraMatrix * glm::translate(glm::vec3(-1.f, 0, 1.f));
+	//drawObjectTexture(sphereModel, glm::rotate(time / 2.0f, glm::vec3(0.0f, 0.5f, 0.0f)) * glm::translate(glm::vec3(2, 1, 5)), texturePlanet);
+
+	//drawObjectTexture(sphereModel, rotation * glm::translate(glm::vec3(-2, 0, -2)), texturePlanet);
+	//glUniformMatrix4fv(glGetUniformLocation(programTexture, "transformation"), 1, GL_FALSE, (float*)&transformation);
+
+	//drawObjectTexture(sphereModel, glm::rotate(time / 2.f, glm::vec3(0.0f, 0.5f, 0.0f)) * glm::translate(glm::vec3(2, 1, 5))* glm::translate(glm::vec3(1.5f, 0.5, 0)) * glm::scale(glm::vec3(0.3f, 0.3f, 0.3f)), texturePlanet);
+	//drawObjectTexture(sphereModel, glm::translate(glm::vec3(0, 0, 0)) * glm::scale(glm::vec3(1.3f, 1.3f, 1.3f)), texturePlanet);
+
 }
 
 void renderScene()
@@ -396,9 +541,18 @@ void renderScene()
 	Skybox::drawSkybox(programSkybox, cameraMatrix, perspectiveMatrix, cubemapTexture);		
 	
 	glUseProgram(programStatic);
-	drawStaticScene();
+	drawStaticScene(amountHp, amountWeapon, amountArmor, amountSources);
 	glUseProgram(0);
 
+	//Engine particles
+	if (engineON) {
+		particleEmitter_LeftEngine->update(0.01f, shipModelMatrix * glm::translate(engineOffset) * engineRotation, cameraMatrix, perspectiveMatrix);
+		particleEmitter_LeftEngine->draw();
+
+		particleEmitter_RightEngine->update(0.01f, shipModelMatrix * glm::translate(engineOffset - glm::vec3(engineOffset.x * 2, 0, 0)) * engineRotation, cameraMatrix, perspectiveMatrix);
+		particleEmitter_RightEngine->draw();
+	}
+	
 	glutSwapBuffers();
 }
 
@@ -425,6 +579,13 @@ void initAsteroids() {
 	}
 }
 
+void initStatic() {
+	amountHp = 5;
+	amountWeapon = 1;
+	amountArmor = 1;
+	amountSources = 30;
+}
+
 void init()
 {
 	srand(time(0));
@@ -434,19 +595,26 @@ void init()
 	programSkybox = shaderLoader.CreateProgram("shaders/shader_skybox.vert", "shaders/shader_skybox.frag");
 	programStatic = shaderLoader.CreateProgram("shaders/shader_hp.vert", "shaders/shader_hp.frag");
 	programExplode = shaderLoader.CreateProgram("shaders/shader_explode.vert", "shaders/shader_explode.frag", "shaders/shader_explode.geom");
-	//sphereModel = obj::loadModelFromFile("models/sphere.obj");
-	//shipModel = obj::loadModelFromFile("models/spaceship_cruiser.obj");
 	textureShip = Core::LoadTexture("textures/ship/cruiser01_diffuse.png");
 	textureShipNormal = Core::LoadTexture("textures/ship/cruiser01_secular.png");
-
+	irrklang::ISound* snd = SoundEngine->play2D("dependencies/irrklang/media/theme.mp3", true, false, true);
+	//snd->setVolume(0.009f); komentuje tylko żeby sobie posłuchać głosniej
+	snd->setVolume(0.04f);
 	firstMouse = true;
-	
+	sphereModel = obj::loadModelFromFile("models/sphere.obj");
+	texturePlanet = Core::LoadTexture("textures/asteroids/unnamed.png");
 	cubemapTexture = Skybox::loadCubemap(faces);
 	initAsteroids();
 	initRenderables();
 	initPhysicsScene();
+	initStatic();
 	//Core::setA(1);
 	//std::cout << Core::getA();
+	engineON = false;
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	programEngineParticle = shaderLoader.CreateProgram("shaders/part.vert", "shaders/part.frag");
+	particleEmitter_LeftEngine = particleEmitter_RightEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
 }
 
 void shutdown()
@@ -456,6 +624,9 @@ void shutdown()
 	shaderLoader.DeleteProgram(programSkybox);
 	shaderLoader.DeleteProgram(programExplode);
 	shaderLoader.DeleteProgram(programStatic);
+
+	particleEmitter_LeftEngine->~ParticleEmitter();
+	particleEmitter_RightEngine->~ParticleEmitter();
 }
 
 void idle()

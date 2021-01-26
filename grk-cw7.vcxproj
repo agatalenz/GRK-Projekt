@@ -11,6 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\ParticleEmiter.cpp" />
     <ClCompile Include="src\Asteroid.cpp" />
     <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\main.cpp" />
@@ -24,6 +25,7 @@
     <ClCompile Include="src\Texture.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\ParticleEmiter.h" />
     <ClInclude Include="src\Asteroid.h" />
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\objload.h" />
@@ -38,6 +40,8 @@
     <ClInclude Include="src\Texture.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shaders\part.frag" />
+    <None Include="shaders\part.vert" />
     <None Include="shaders\shader_color.frag" />
     <None Include="shaders\shader_color.vert" />
     <None Include="shaders\shader_cubemap.frag" />
@@ -53,6 +57,9 @@
     <None Include="shaders\shader_tex.vert" />
     <None Include="shaders\skybox.frag" />
     <None Include="shaders\skybox.vert" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="src\irrKlang.lib" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{1B448102-E76C-4347-BDC7-40D02A567DB6}</ProjectGuid>
@@ -102,12 +109,15 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalIncludeDirectories>dependencies\physx-4.1\include;dependencies\physx-4.1\source\common\include;dependencies\physx-4.1\source\common\src;dependencies\physx-4.1\source\physx\src;dependencies\physx-4.1\source\physx\src\device;dependencies\physx-4.1\source\physx\src\buffering;dependencies\physx-4.1\source\physxgpu\include;dependencies\physx-4.1\source\geomutils\include;dependencies\physx-4.1\source\geomutils\src;dependencies\physx-4.1\source\geomutils\src\contact;dependencies\physx-4.1\source\geomutils\src\common;dependencies\physx-4.1\source\geomutils\src\convex;dependencies\physx-4.1\source\geomutils\src\distance;dependencies\physx-4.1\source\geomutils\src\sweep;dependencies\physx-4.1\source\geomutils\src\gjk;dependencies\physx-4.1\source\geomutils\src\intersection;dependencies\physx-4.1\source\geomutils\src\mesh;dependencies\physx-4.1\source\geomutils\src\hf;dependencies\physx-4.1\source\geomutils\src\pcm;dependencies\physx-4.1\source\geomutils\src\ccd;dependencies\physx-4.1\source\lowlevel\api\include;dependencies\physx-4.1\source\lowlevel\software\include;dependencies\physx-4.1\source\lowlevel\common\include\pipeline;dependencies\physx-4.1\source\lowlevelaabb\include;dependencies\physx-4.1\source\lowleveldynamics\include;dependencies\physx-4.1\source\simulationcontroller\include;dependencies\physx-4.1\source\simulationcontroller\src;dependencies\physx-4.1\source\physxcooking\src;dependencies\physx-4.1\source\physxcooking\src\mesh;dependencies\physx-4.1\source\physxcooking\src\convex;dependencies\physx-4.1\source\scenequery\include;dependencies\physx-4.1\source\physxmetadata\core\include;dependencies\physx-4.1\source\immediatemode\include;dependencies\physx-4.1\source\pvd\include;dependencies\physx-4.1\source\foundation\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>opengl32.lib;freeglut.lib;glew32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dependencies\physx-4.1\lib\win.x86_32.vc141.mt\release\PhysXExtensions_static_32.lib;dependencies\physx-4.1\lib\win.x86_32.vc141.mt\release\PhysX_32.lib;dependencies\physx-4.1\lib\win.x86_32.vc141.mt\release\PhysXPvdSDK_static_32.lib;dependencies\physx-4.1\lib\win.x86_32.vc141.mt\release\PhysXVehicle_static_32.lib;dependencies\physx-4.1\lib\win.x86_32.vc141.mt\release\PhysXCharacterKinematic_static_32.lib;dependencies\physx-4.1\lib\win.x86_32.vc141.mt\release\PhysXCooking_32.lib;dependencies\physx-4.1\lib\win.x86_32.vc141.mt\release\PhysXCommon_32.lib;dependencies\physx-4.1\lib\win.x86_32.vc141.mt\release\SnippetUtils_static_32.lib;dependencies\physx-4.1\lib\win.x86_32.vc141.mt\release\SnippetRender_static_32.lib;dependencies\physx-4.1\lib\win.x86_32.vc141.mt\release\PhysXFoundation_32.lib;opengl32.lib;freeglut.lib;glew32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -121,7 +131,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>dependencies\physx-4.1\include;dependencies\physx-4.1\source\common\include;dependencies\physx-4.1\source\common\src;dependencies\physx-4.1\source\physx\src;dependencies\physx-4.1\source\physx\src\device;dependencies\physx-4.1\source\physx\src\buffering;dependencies\physx-4.1\source\physxgpu\include;dependencies\physx-4.1\source\geomutils\include;dependencies\physx-4.1\source\geomutils\src;dependencies\physx-4.1\source\geomutils\src\contact;dependencies\physx-4.1\source\geomutils\src\common;dependencies\physx-4.1\source\geomutils\src\convex;dependencies\physx-4.1\source\geomutils\src\distance;dependencies\physx-4.1\source\geomutils\src\sweep;dependencies\physx-4.1\source\geomutils\src\gjk;dependencies\physx-4.1\source\geomutils\src\intersection;dependencies\physx-4.1\source\geomutils\src\mesh;dependencies\physx-4.1\source\geomutils\src\hf;dependencies\physx-4.1\source\geomutils\src\pcm;dependencies\physx-4.1\source\geomutils\src\ccd;dependencies\physx-4.1\source\lowlevel\api\include;dependencies\physx-4.1\source\lowlevel\software\include;dependencies\physx-4.1\source\lowlevel\common\include\pipeline;dependencies\physx-4.1\source\lowlevelaabb\include;dependencies\physx-4.1\source\lowleveldynamics\include;dependencies\physx-4.1\source\simulationcontroller\include;dependencies\physx-4.1\source\simulationcontroller\src;dependencies\physx-4.1\source\physxcooking\src;dependencies\physx-4.1\source\physxcooking\src\mesh;dependencies\physx-4.1\source\physxcooking\src\convex;dependencies\physx-4.1\source\scenequery\include;dependencies\physx-4.1\source\physxmetadata\core\include;dependencies\physx-4.1\source\immediatemode\include;dependencies\physx-4.1\source\pvd\include;dependencies\physx-4.1\source\foundation\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>dependencies\irrklang\include;dependencies\physx-4.1\include;dependencies\physx-4.1\source\common\include;dependencies\physx-4.1\source\common\src;dependencies\physx-4.1\source\physx\src;dependencies\physx-4.1\source\physx\src\device;dependencies\physx-4.1\source\physx\src\buffering;dependencies\physx-4.1\source\physxgpu\include;dependencies\physx-4.1\source\geomutils\include;dependencies\physx-4.1\source\geomutils\src;dependencies\physx-4.1\source\geomutils\src\contact;dependencies\physx-4.1\source\geomutils\src\common;dependencies\physx-4.1\source\geomutils\src\convex;dependencies\physx-4.1\source\geomutils\src\distance;dependencies\physx-4.1\source\geomutils\src\sweep;dependencies\physx-4.1\source\geomutils\src\gjk;dependencies\physx-4.1\source\geomutils\src\intersection;dependencies\physx-4.1\source\geomutils\src\mesh;dependencies\physx-4.1\source\geomutils\src\hf;dependencies\physx-4.1\source\geomutils\src\pcm;dependencies\physx-4.1\source\geomutils\src\ccd;dependencies\physx-4.1\source\lowlevel\api\include;dependencies\physx-4.1\source\lowlevel\software\include;dependencies\physx-4.1\source\lowlevel\common\include\pipeline;dependencies\physx-4.1\source\lowlevelaabb\include;dependencies\physx-4.1\source\lowleveldynamics\include;dependencies\physx-4.1\source\simulationcontroller\include;dependencies\physx-4.1\source\simulationcontroller\src;dependencies\physx-4.1\source\physxcooking\src;dependencies\physx-4.1\source\physxcooking\src\mesh;dependencies\physx-4.1\source\physxcooking\src\convex;dependencies\physx-4.1\source\scenequery\include;dependencies\physx-4.1\source\physxmetadata\core\include;dependencies\physx-4.1\source\immediatemode\include;dependencies\physx-4.1\source\pvd\include;dependencies\physx-4.1\source\foundation\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
