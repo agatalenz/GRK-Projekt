@@ -1,7 +1,8 @@
-#include "ParticleEmiter.h"
+#include "ParticleEmiterTex.h"
 #include <cstdlib>
+#include "Texture.h"
 
-ParticleEmitter::ParticleEmitter(GLuint* program)
+ParticleEmitterTex::ParticleEmitterTex(GLuint* program)
 {
 	this->program = program;
 
@@ -18,25 +19,26 @@ ParticleEmitter::ParticleEmitter(GLuint* program)
 	generateBuffers();
 }
 
-ParticleEmitter::ParticleEmitter(GLuint* program, int particleCount, float particleSize)
+ParticleEmitterTex::ParticleEmitterTex(GLuint* program, int particleCount, float particleSize, GLuint texId)
 {
 	this->program = program;
 
 	this->positionsArr = new float[particleCount * 4];
 	this->particleSize = particleSize;
+	this->texId = texId;
 
 	particles.resize(particleCount);
 	for (int i = 0; i < particleCount; ++i)
 	{
 		particles[i].position = glm::vec3(0);
 		particles[i].lifetime = randomFloat(1.0f, 2.0f);
-		particles[i].radius = 0.003f;
+		particles[i].radius = 0.01f;
 	}
 
 	generateBuffers();
 }
 
-void ParticleEmitter::generateBuffers()
+void ParticleEmitterTex::generateBuffers()
 {
 	glGenBuffers(1, &particleVertexBuffer);
 
@@ -52,17 +54,27 @@ void ParticleEmitter::generateBuffers()
 	glGenBuffers(1, &particlePositionBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, particlePositionBuffer);
 	glBufferData(GL_ARRAY_BUFFER, particles.size() * 4 * sizeof(float), positionsArr, GL_DYNAMIC_DRAW);
+
+	glGenBuffers(1, &particleTexBuffer);
+	std::vector<float> texCoord;
+	texCoord.push_back(0.0f); texCoord.push_back(0.0f);
+	texCoord.push_back(0.0f); texCoord.push_back(1.0f);
+	texCoord.push_back(1.0f); texCoord.push_back(0.0f);
+	texCoord.push_back(1.0f); texCoord.push_back(1.0f);
+	glBindBuffer(GL_ARRAY_BUFFER, particleTexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, texCoord.size() * sizeof(float), texCoord.data(), GL_STATIC_DRAW);
 }
 
-void ParticleEmitter::setupUniforms(const glm::mat4 transformation, glm::mat4 cameraMatrix, glm::mat4 perspectiveMatrix)
+void ParticleEmitterTex::setupUniforms(const glm::mat4 transformation, glm::mat4 cameraMatrix, glm::mat4 perspectiveMatrix)
 {
 	glUniformMatrix4fv(glGetUniformLocation(*program, "transformation"), 1, GL_FALSE, (float*)&transformation);
 	glUniformMatrix4fv(glGetUniformLocation(*program, "M_v"), 1, GL_FALSE, (float*)&cameraMatrix);
 	glUniformMatrix4fv(glGetUniformLocation(*program, "M_p"), 1, GL_FALSE, (float*)&perspectiveMatrix);
 	glUniform1f(glGetUniformLocation(*program, "particleSize"), this->particleSize);
+	Core::SetActiveTexture(this->texId, "textureSampler", *this->program, 0);
 }
 
-void ParticleEmitter::update(const float dt, const glm::mat4 transformation, glm::mat4 cameraMatrix, glm::mat4 perspectiveMatrix)
+void ParticleEmitterTex::update(const float dt, const glm::mat4 transformation, glm::mat4 cameraMatrix, glm::mat4 perspectiveMatrix)
 {
 	glUseProgram(*program);
 
@@ -78,7 +90,7 @@ void ParticleEmitter::update(const float dt, const glm::mat4 transformation, glm
 		{
 			particles[i].position = glm::vec3(0);
 			particles[i].lifetime = randomFloat(1.0f, 2.0f);
-			particles[i].radius = 0.003f;
+			particles[i].radius = 0.001f;
 		}
 
 		float radius = particles[i].radius;
@@ -91,12 +103,17 @@ void ParticleEmitter::update(const float dt, const glm::mat4 transformation, glm
 	}
 }
 
-void ParticleEmitter::draw()
+void ParticleEmitterTex::draw()
 {
+	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_ALPHA_TEST);
+	glAlphaFunc(GL_NOTEQUAL, 0.0);
+	
 
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(4);
+	glEnableVertexAttribArray(5);
 
 	glBindBuffer(GL_ARRAY_BUFFER, particlePositionBuffer);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, particles.size() * 4 * sizeof(float), positionsArr);
@@ -108,21 +125,26 @@ void ParticleEmitter::draw()
 	glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 0, nullptr);
 	glVertexAttribDivisor(4, 1);
 
+	glBindBuffer(GL_ARRAY_BUFFER, particleTexBuffer);
+	glVertexAttribPointer(5, 2, GL_FLOAT, false, 0, nullptr);
+
 	glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, particles.size());
 
 	glDisableVertexAttribArray(0);
 	glDisableVertexAttribArray(4);
+	glDisableVertexAttribArray(5);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glUseProgram(0);
 }
 
-float ParticleEmitter::randomFloat(float min, float max) {
+float ParticleEmitterTex::randomFloat(float min, float max) {
 	return  (max - min) * ((((float)rand()) / (float)RAND_MAX)) + min;
 }
 
-ParticleEmitter::~ParticleEmitter()
+ParticleEmitterTex::~ParticleEmitterTex()
 {
 	glDeleteBuffers(1, &particleVertexBuffer);
 	glDeleteBuffers(1, &particlePositionBuffer);
+	glDeleteBuffers(1, &particleTexBuffer);
 }

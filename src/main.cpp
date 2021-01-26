@@ -19,16 +19,18 @@
 #include "Asteroid.h"
 #include <irrKlang.h>
 #include "ParticleEmiter.h"
+#include "ParticleEmiterTex.h"
 // obj
 ParticleEmitter* particleEmitter_LeftEngine;
 ParticleEmitter* particleEmitter_RightEngine;
+ParticleEmitterTex* particleEmitter_ShipExplode;
 // offset
 const glm::vec3 engineOffset = glm::vec3(-0.23f, -0.08f, -0.4f);
 const glm::mat4 engineRotation = glm::rotate(glm::radians(90.0f), glm::vec3(1, 0, 0));
 // particle program
 GLuint programEngineParticle;
 // ...
-
+GLuint explosionTexture;
 
 
 using namespace irrklang;
@@ -44,6 +46,7 @@ GLuint programCubemap;
 GLuint programSkybox;
 GLuint programStatic;
 GLuint programExplode;
+GLuint programTextureParticle;
 
 Core::RenderContext shipContext;
 Core::RenderContext gemContext;
@@ -604,9 +607,12 @@ void renderScene()
 	cameraMatrix = createCameraMatrix();
 	perspectiveMatrix = Core::createPerspectiveMatrix();
 
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glClearColor(0.0f, 0.1f, 0.3f, 1.0f);
 
+
+	Skybox::drawSkybox(programSkybox, cameraMatrix, perspectiveMatrix, cubemapTexture);
 
 	glm::mat4 shipInitialTransformation = glm::translate(glm::vec3(0, -0.25f, 0)) * glm::rotate(glm::radians(180.0f), glm::vec3(0, 1, 0)) * glm::scale(glm::vec3(0.25f));
 	glm::mat4 shipModelMatrix = glm::translate(cameraPos + cameraDir * 0.5f) * glm::mat4_cast(glm::inverse(rotation)) * shipInitialTransformation;
@@ -617,6 +623,8 @@ void renderScene()
 	}
 	else if (expl_time <= 2.0){
 		drawObjectExplode(renderables[0]->context, shipModelMatrix* glm::scale(glm::vec3(0.075f)), renderables[0]->textureId);
+		particleEmitter_ShipExplode->update(0.01f, shipModelMatrix, cameraMatrix, perspectiveMatrix);
+		particleEmitter_ShipExplode->draw();
 	}	
 
 	for (Asteroid asteroid : asteroids) {
@@ -624,7 +632,7 @@ void renderScene()
 		drawObjectTexture(&asteroid.Model, asteroid.Coordinates, asteroid.Texture);
 	}
 	
-	Skybox::drawSkybox(programSkybox, cameraMatrix, perspectiveMatrix, cubemapTexture);		
+	
 	
 	glUseProgram(programStatic);
 	drawStaticScene(amountHp, amountWeapon, amountArmor, amountSources);
@@ -705,7 +713,13 @@ void init()
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	programEngineParticle = shaderLoader.CreateProgram("shaders/part.vert", "shaders/part.frag");
-	particleEmitter_LeftEngine = particleEmitter_RightEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
+	programTextureParticle = shaderLoader.CreateProgram("shaders/part_tex.vert", "shaders/part_tex.frag");
+
+	explosionTexture = Core::LoadTexture("textures/particles/explosion.png");
+	
+	particleEmitter_LeftEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
+	particleEmitter_RightEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
+	particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 200, 0.015, explosionTexture);
 }
 
 void shutdown()
@@ -718,6 +732,7 @@ void shutdown()
 
 	particleEmitter_LeftEngine->~ParticleEmitter();
 	particleEmitter_RightEngine->~ParticleEmitter();
+	particleEmitter_ShipExplode->~ParticleEmitterTex();
 }
 
 void idle()

@@ -6,12 +6,12 @@
 
 #define PARTICLES_COUNT 100
 
-class ParticleEmitter
+class ParticleEmitterTex
 {
 public:
-	ParticleEmitter(GLuint* program);
-	ParticleEmitter(GLuint* program, int particleCount, float particleSize);
-	~ParticleEmitter();
+	ParticleEmitterTex(GLuint* program);
+	ParticleEmitterTex(GLuint* program, int particleCount, float particleSize, GLuint texId);
+	~ParticleEmitterTex();
 
 	void update(const float dt, const glm::mat4 transformation, glm::mat4 cameraMatrix, glm::mat4 perspectiveMatrix);
 	void draw();
@@ -29,6 +29,8 @@ private:
 	GLuint* program;
 	GLuint particleVertexBuffer;
 	GLuint particlePositionBuffer;
+	GLuint particleTexBuffer;
+	GLuint texId;
 	std::vector< Particle > particles;
 
 	float randomFloat(float min, float max);
