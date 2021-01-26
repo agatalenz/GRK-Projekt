@@ -10,6 +10,7 @@ class ParticleEmitter
 {
 public:
 	ParticleEmitter(GLuint* program);
+	ParticleEmitter::ParticleEmitter(GLuint* program, int particleCount, float particleSize);
 	~ParticleEmitter();
 
 	void update(const float dt, const glm::mat4 transformation, glm::mat4 cameraMatrix, glm::mat4 perspectiveMatrix);
@@ -23,7 +24,8 @@ private:
 		float radius = 0.0f;
 	};
 
-	float positionsArr[PARTICLES_COUNT * 4];
+	float* positionsArr;
+	float particleSize = 0.015f;
 	GLuint* program;
 	GLuint particleVertexBuffer;
 	GLuint particlePositionBuffer;

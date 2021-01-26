@@ -544,7 +544,7 @@ void renderScene()
 	drawStaticScene(amountHp, amountWeapon, amountArmor, amountSources);
 	glUseProgram(0);
 
-	//chujchuj
+	//Engine particles
 	if (engineON) {
 		particleEmitter_LeftEngine->update(0.01f, shipModelMatrix * glm::translate(engineOffset) * engineRotation, cameraMatrix, perspectiveMatrix);
 		particleEmitter_LeftEngine->draw();
@@ -614,7 +614,7 @@ void init()
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	programEngineParticle = shaderLoader.CreateProgram("shaders/part.vert", "shaders/part.frag");
-	particleEmitter_LeftEngine = particleEmitter_RightEngine = new ParticleEmitter(&programEngineParticle);
+	particleEmitter_LeftEngine = particleEmitter_RightEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
 }
 
 void shutdown()

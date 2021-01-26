@@ -51,7 +51,7 @@
     <ClCompile Include="src\Physics.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ParticleEmiter.cpp">
+    <ClCompile Include="src\ParticleEmiter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -92,7 +92,7 @@
     <ClInclude Include="src\PxPhysicsAPI.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ParticleEmiter.h">
+    <ClInclude Include="src\ParticleEmiter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

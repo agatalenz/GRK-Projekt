@@ -5,8 +5,28 @@ ParticleEmitter::ParticleEmitter(GLuint* program)
 {
 	this->program = program;
 
+	this->positionsArr = new float[PARTICLES_COUNT * 4];
+
 	particles.resize(PARTICLES_COUNT);
 	for (int i = 0; i < PARTICLES_COUNT; ++i)
+	{
+		particles[i].position = glm::vec3(0);
+		particles[i].lifetime = randomFloat(1.0f, 2.0f);
+		particles[i].radius = 0.01f;
+	}
+
+	generateBuffers();
+}
+
+ParticleEmitter::ParticleEmitter(GLuint* program, int particleCount, float particleSize)
+{
+	this->program = program;
+
+	this->positionsArr = new float[particleCount * 4];
+	this->particleSize = particleSize;
+
+	particles.resize(particleCount);
+	for (int i = 0; i < particleCount; ++i)
 	{
 		particles[i].position = glm::vec3(0);
 		particles[i].lifetime = randomFloat(1.0f, 2.0f);
@@ -39,7 +59,7 @@ void ParticleEmitter::setupUniforms(const glm::mat4 transformation, glm::mat4 ca
 	glUniformMatrix4fv(glGetUniformLocation(*program, "transformation"), 1, GL_FALSE, (float*)&transformation);
 	glUniformMatrix4fv(glGetUniformLocation(*program, "M_v"), 1, GL_FALSE, (float*)&cameraMatrix);
 	glUniformMatrix4fv(glGetUniformLocation(*program, "M_p"), 1, GL_FALSE, (float*)&perspectiveMatrix);
-	glUniform1f(glGetUniformLocation(*program, "particleSize"), 0.015f);
+	glUniform1f(glGetUniformLocation(*program, "particleSize"), this->particleSize);
 }
 
 void ParticleEmitter::update(const float dt, const glm::mat4 transformation, glm::mat4 cameraMatrix, glm::mat4 perspectiveMatrix)
