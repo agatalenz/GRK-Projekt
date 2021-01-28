@@ -2,22 +2,22 @@
 #include <cstdlib>
 #include "Texture.h"
 
-ParticleEmitterTex::ParticleEmitterTex(GLuint* program)
-{
-	this->program = program;
-
-	this->positionsArr = new float[PARTICLES_COUNT * 4];
-
-	particles.resize(PARTICLES_COUNT);
-	for (int i = 0; i < PARTICLES_COUNT; ++i)
-	{
-		particles[i].position = glm::vec3(0);
-		particles[i].lifetime = randomFloat(1.0f, 2.0f);
-		particles[i].radius = 0.01f;
-	}
-
-	generateBuffers();
-}
+//ParticleEmitterTex::ParticleEmitterTex(GLuint* program)
+//{
+//	this->program = program;
+//
+//	this->positionsArr = new float[PARTICLES_COUNT * 4];
+//
+//	particles.resize(PARTICLES_COUNT);
+//	for (int i = 0; i < PARTICLES_COUNT; ++i)
+//	{
+//		particles[i].position = glm::vec3(0);
+//		particles[i].lifetime = randomFloat(1.0f, 2.0f);
+//		particles[i].radius = 0.01f;
+//	}
+//
+//	generateBuffers();
+//}
 
 ParticleEmitterTex::ParticleEmitterTex(GLuint* program, int particleCount, float particleSize, GLuint texId)
 {
@@ -31,8 +31,9 @@ ParticleEmitterTex::ParticleEmitterTex(GLuint* program, int particleCount, float
 	for (int i = 0; i < particleCount; ++i)
 	{
 		particles[i].position = glm::vec3(0);
+		particles[i].velocity = glm::normalize(glm::vec3(randomFloat(-1, 1), randomFloat(-1, 1), randomFloat(-1, 1)));
 		particles[i].lifetime = randomFloat(1.0f, 2.0f);
-		particles[i].radius = 0.01f;
+		particles[i].radius = 0.02f;
 	}
 
 	generateBuffers();
@@ -74,6 +75,12 @@ void ParticleEmitterTex::setupUniforms(const glm::mat4 transformation, glm::mat4
 	Core::SetActiveTexture(this->texId, "textureSampler", *this->program, 0);
 }
 
+float clamp(float min, float max, float a){
+	if (a > max) return max;
+	if (a < min) return min;
+	return a;
+}
+
 void ParticleEmitterTex::update(const float dt, const glm::mat4 transformation, glm::mat4 cameraMatrix, glm::mat4 perspectiveMatrix)
 {
 	glUseProgram(*program);
@@ -83,18 +90,23 @@ void ParticleEmitterTex::update(const float dt, const glm::mat4 transformation, 
 
 	for (int i = 0; i < particles.size(); ++i)
 	{
-		particles[i].lifetime -= dt;
-		particles[i].radius += 0.0002;
+		particles[i].lifetime -= dt*3;
+		//particles[i].radius += 0.0075;
+		//this->particleSize -= 0.000005f;
+		//ethis->particleSize = clamp(0.0, this->particleSize, this->particleSize - 0.000001f);
+		this->particleSize *= 0.999985f;
+		glUniform1f(glGetUniformLocation(*program, "particleSize"), this->particleSize);
 
-		if (particles[i].lifetime <= 0.0f)
+		/*if (particles[i].lifetime <= 0.0f)
 		{
 			particles[i].position = glm::vec3(0);
 			particles[i].lifetime = randomFloat(1.0f, 2.0f);
-			particles[i].radius = 0.001f;
-		}
+			particles[i].radius = 0.02f;
+		}*/
 
 		float radius = particles[i].radius;
-		particles[i].position -= glm::vec3(randomFloat(-radius, radius), dt / 3, randomFloat(-radius, radius));
+		//particles[i].position -= glm::vec3(randomFloat(-radius, radius), randomFloat(-radius, radius), randomFloat(-radius, radius));
+		particles[i].position += particles[i].velocity * 0.035f;
 
 		positionsArr[i * 4 + 0] = particles[i].position[0];
 		positionsArr[i * 4 + 1] = particles[i].position[1];
