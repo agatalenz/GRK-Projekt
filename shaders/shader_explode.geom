@@ -14,7 +14,7 @@ uniform float time;
 vec4 explode(vec4 position, vec3 normal)
 {
     float magnitude = .5;
-    vec3 direction = normal * ((clamp(time, 0.0, 2.0)) / 2.0) * magnitude; 
+    vec3 direction = normal * ((clamp(time, 0.0, 3.5)) / 2.0) * magnitude; 
     return position + vec4(direction, 0.0);
 }
 

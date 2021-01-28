@@ -163,6 +163,10 @@ double physicsTimeToProcess = 0;
 //----------------------------------------------
 
 
+void enableEngines();
+void disableEngines();
+
+
 void initRenderables()
 {
 
@@ -259,7 +263,7 @@ float mouseSpeed = 0.5f;
 
 bool explode = false;
 float expl_time = 0.0f;
-float expl_speed = 0.05f;
+float expl_speed = 0.03f;
 
 glm::quat rotationZ = glm::angleAxis(glm::radians(0.f), glm::vec3(0, 0, 1));
 
@@ -351,11 +355,11 @@ void keyboard(unsigned char key, int x, int y)
 	{	
 	case 'z': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, 1))* rotation; break;
 	case 'x': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, -1))* rotation; break;
-	case 'w': cameraPos += cameraDir * moveSpeed; engineON = true; break;
-	case 's': cameraPos -= cameraDir * moveSpeed; engineON = false; break;
+	case 'w': cameraPos += cameraDir * moveSpeed; enableEngines(); break;
+	case 's': cameraPos -= cameraDir * moveSpeed; disableEngines(); break;
 	case 'd': cameraPos += cameraSide * moveSpeed; break;
 	case 'a': cameraPos -= cameraSide * moveSpeed; break;
-	case 'e': explode = true; break;
+	case 'e': explode = true; particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 2000, 0.05, explosionTexture); disableEngines(); break;
 	case 'r': explode = false; break;
 	case '1': upWeapon(); break;
 	case '2': upArmor(); break;
@@ -586,6 +590,22 @@ void drawPlanets() {
 	//drawObjectTexture(sphereModel, glm::translate(glm::vec3(0, 0, 0)) * glm::scale(glm::vec3(1.3f, 1.3f, 1.3f)), texturePlanet);
 }
 
+void enableEngines() {
+	if (!engineON) {
+		particleEmitter_LeftEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
+		particleEmitter_RightEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
+		engineON = true;
+	}	
+}
+
+void disableEngines() {
+	if (engineON) {
+		particleEmitter_LeftEngine->~ParticleEmitter();
+		particleEmitter_RightEngine->~ParticleEmitter();
+		engineON = false;
+	}	
+}
+
 void renderScene()
 {	
 	double time = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
@@ -621,7 +641,7 @@ void renderScene()
 		drawObjectTextureFromContext(renderables[0]->context, shipModelMatrix * glm::scale(glm::vec3(0.075f)), renderables[0]->textureId);
 		expl_time = 0.0;
 	}
-	else if (expl_time <= 2.0){
+	else if (expl_time <= 3.5){
 		drawObjectExplode(renderables[0]->context, shipModelMatrix* glm::scale(glm::vec3(0.075f)), renderables[0]->textureId);
 		particleEmitter_ShipExplode->update(0.01f, shipModelMatrix, cameraMatrix, perspectiveMatrix);
 		particleEmitter_ShipExplode->draw();
@@ -717,9 +737,8 @@ void init()
 
 	explosionTexture = Core::LoadTexture("textures/particles/explosion.png");
 	
-	particleEmitter_LeftEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
-	particleEmitter_RightEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
-	particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 200, 0.015, explosionTexture);
+	
+	
 }
 
 void shutdown()

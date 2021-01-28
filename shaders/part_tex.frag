@@ -11,5 +11,5 @@ void main()
     vec4 color = texture2D(textureSampler, interpTexCoord);
 
     float normalizedLifeTime = lifeTime / 2; 
-    fragColor = vec4( color);
+    fragColor = color;
 };
