@@ -57,6 +57,7 @@ const int ASTEROIDS_NUMBER = 50;
 std::vector<GLuint> asteroidTextures;
 std::vector<obj::Model> asteroidModels;
 std::vector<Asteroid> asteroids;
+std::vector<GLuint> texturePlanetAnimated;
 
 GLuint textureShip;
 GLuint textureShipNormal;
@@ -576,18 +577,23 @@ void drawStaticScene(int hp, int weapon, int armor, int sources) {
 
 void drawPlanets() {
 
-	//glUseProgram(programTexture);
-	//double time = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
-	//glm::mat4 translation = glm::translate(glm::vec3(0.0f, -0.5f, -2.0f));
-	//glm::mat4 rotation = glm::rotate(time, glm::vec3(0.0f, 0.5f, 0.0f));
-	//glm::mat4 transformation = perspectiveMatrix * cameraMatrix * glm::translate(glm::vec3(-1.f, 0, 1.f));
-	//drawObjectTexture(sphereModel, glm::rotate(time / 2.0f, glm::vec3(0.0f, 0.5f, 0.0f)) * glm::translate(glm::vec3(2, 1, 5)), texturePlanet);
+	float time = glutGet(GLUT_ELAPSED_TIME) / 1000.0f;
+	glm::mat4 translation = glm::translate(glm::vec3(300.0f, 0.0f, -500.0f));
+	glm::mat4 rotation = glm::rotate(time, glm::vec3(0.0f, 0.0f, 0.0f));
+	glm::mat4 scale = glm::scale(glm::vec3(50.f, 50.f, 50.f));
 
-	//drawObjectTexture(sphereModel, rotation * glm::translate(glm::vec3(-2, 0, -2)), texturePlanet);
-	//glUniformMatrix4fv(glGetUniformLocation(programTexture, "transformation"), 1, GL_FALSE, (float*)&transformation);
-
-	//drawObjectTexture(sphereModel, glm::rotate(time / 2.f, glm::vec3(0.0f, 0.5f, 0.0f)) * glm::translate(glm::vec3(2, 1, 5))* glm::translate(glm::vec3(1.5f, 0.5, 0)) * glm::scale(glm::vec3(0.3f, 0.3f, 0.3f)), texturePlanet);
-	//drawObjectTexture(sphereModel, glm::translate(glm::vec3(0, 0, 0)) * glm::scale(glm::vec3(1.3f, 1.3f, 1.3f)), texturePlanet);
+	//główna planeta
+	drawObjectTexture(&sphereModel, translation * scale, texturePlanetAnimated[1]);
+	//mniejsze
+	rotation = glm::rotate(time / 2.0f, glm::vec3(0.0f, 0.5f, 0.0f));
+	scale = glm::scale(glm::vec3(20.f, 20.f, 20.f));
+	drawObjectTexture(&sphereModel, translation * glm::rotate(time / 2.0f, glm::vec3(0.0f, 0.0f, 1.0f)) * glm::translate(glm::vec3(100.0f, 0.0f, 0.0f)) * glm::scale(glm::vec3(15.f, 15.f, 15.f)), texturePlanetAnimated[0]);
+	drawObjectTexture(&sphereModel, translation * rotation * glm::translate(glm::vec3(0.0f, 0.0f, 100.0f)) * scale, texturePlanetAnimated[0]);
+	//najmniejsza
+	rotation = glm::rotate(time / 3.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+	scale = glm::scale(glm::vec3(10.f, 10.f, 10.f));
+	drawObjectTexture(&sphereModel, translation * glm::rotate(time / 2.0f, glm::vec3(0.0f, 0.5f, 0.0f)) * rotation * glm::translate(glm::vec3(100.0f, 30.0f, 0.0f)) * scale, texturePlanet);
+	
 }
 
 void enableEngines() {
@@ -652,7 +658,7 @@ void renderScene()
 		drawObjectTexture(&asteroid.Model, asteroid.Coordinates, asteroid.Texture);
 	}
 	
-	
+	drawPlanets();
 	
 	glUseProgram(programStatic);
 	drawStaticScene(amountHp, amountWeapon, amountArmor, amountSources);
@@ -722,6 +728,8 @@ void init()
 	firstMouse = true;
 	sphereModel = obj::loadModelFromFile("models/sphere.obj");
 	texturePlanet = Core::LoadTexture("textures/asteroids/unnamed.png");
+	texturePlanetAnimated.push_back(Core::LoadTexture("textures/planets/jupiter.png"));
+	texturePlanetAnimated.push_back(Core::LoadTexture("textures/planets/venus.png"));
 	cubemapTexture = Skybox::loadCubemap(faces);
 	initAsteroids();
 	initRenderables();
