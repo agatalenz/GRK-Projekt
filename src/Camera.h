@@ -5,8 +5,7 @@
 
 namespace Core
 {
-	void setFrustumScale(float x = 1.1f);
-	glm::mat4 createPerspectiveMatrix(float zNear = 0.1f, float zFar = 1000.0f);
+	glm::mat4 createPerspectiveMatrix(float zNear, float zFar, float frustumScale);
 
 	// position - pozycja kamery
 	// forward - wektor "do przodu" kamery (jednostkowy)

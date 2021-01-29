@@ -38,6 +38,7 @@ using namespace irrklang;
 
 ISoundEngine* SoundEngine = createIrrKlangDevice();
 
+
 int windowWidth = 600;
 int windowHeight = 600;
 GLuint programColor;
@@ -486,7 +487,7 @@ void printShop(std::string text, int x, int y) {
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();
 	glLoadIdentity();
-	gluOrtho2D(0.0, 600, 0.0, 600);
+	gluOrtho2D(0.0, windowWidth, 0.0, windowHeight);
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
 	glLoadIdentity();
@@ -628,10 +629,11 @@ void renderScene()
 			physicsTimeToProcess -= physicsStepTime;
 		}
 	}
-
+	
 	// Aktualizacja macierzy widoku i rzutowania
 	cameraMatrix = createCameraMatrix();
-	perspectiveMatrix = Core::createPerspectiveMatrix();
+	perspectiveMatrix = Core::createPerspectiveMatrix(0.1f, 1000.0f, float(windowWidth/windowHeight));
+
 
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -746,7 +748,7 @@ void init()
 	explosionTexture = Core::LoadTexture("textures/particles/explosion.png");
 	
 	
-	
+	glViewport(0, 0, windowWidth, windowHeight);
 }
 
 void shutdown()
@@ -767,11 +769,6 @@ void idle()
 	glutPostRedisplay();
 }
 
-void onReshape(int width, int height)
-{	
-	//Core::setFrustumScale((float)width / height);
-	glViewport(0, 0, width, height);
-}
 
 int main(int argc, char ** argv)
 {
@@ -781,6 +778,10 @@ int main(int argc, char ** argv)
 	glutInitWindowSize(windowWidth, windowHeight);
 	glutCreateWindow("Space shitter");
 	glewInit();
+	windowWidth = glutGet(GLUT_SCREEN_WIDTH);
+	windowHeight = glutGet(GLUT_SCREEN_HEIGHT);
+	glutFullScreen();
+
 	glutSetCursor(GLUT_CURSOR_NONE);
 	init();
 	glutKeyboardFunc(keyboard);
