@@ -596,6 +596,20 @@ void drawPlanets() {
 	
 }
 
+void setSpotLight() {
+	glUseProgram(programTexture);
+	glUniform3fv(glGetUniformLocation(programTexture, "spotLight.position"), 1, (float*)&cameraPos);
+	glUniform3fv(glGetUniformLocation(programTexture, "spotLight.direction"), 1, (float*)&cameraDir);
+	glUniform3fv(glGetUniformLocation(programTexture, "spotLight.color"), 1, (float*)&glm::vec3(1.0f, 1.0f, 0.75f));
+	glUniform1f(glGetUniformLocation(programTexture, "spotLight.constant"), 1.0f);
+	glUniform1f(glGetUniformLocation(programTexture, "spotLight.linear"), 0.09);
+	glUniform1f(glGetUniformLocation(programTexture, "spotLight.quadratic"), 0.04);
+	glUniform1f(glGetUniformLocation(programTexture, "spotLight.cutOff"), glm::cos(glm::radians(10.0f)));
+	glUniform1f(glGetUniformLocation(programTexture, "spotLight.outerCutOff"), glm::cos(glm::radians(14.0f)));
+	glUniform3fv(glGetUniformLocation(programTexture, "viewPos"), 1, (float*)&cameraPos);
+	glUseProgram(0);
+}
+
 void enableEngines() {
 	if (!engineON) {
 		particleEmitter_LeftEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
@@ -636,6 +650,8 @@ void renderScene()
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glClearColor(0.0f, 0.1f, 0.3f, 1.0f);
+
+	setSpotLight();
 
 
 	Skybox::drawSkybox(programSkybox, cameraMatrix, perspectiveMatrix, cubemapTexture);
