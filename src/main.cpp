@@ -38,6 +38,7 @@ using namespace irrklang;
 
 ISoundEngine* SoundEngine = createIrrKlangDevice();
 
+
 int windowWidth = 600;
 int windowHeight = 600;
 GLuint programColor;
@@ -486,13 +487,13 @@ void printShop(std::string text, int x, int y) {
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();
 	glLoadIdentity();
-	gluOrtho2D(0.0, 600, 0.0, 600);
+	gluOrtho2D(0.0, windowWidth, 0.0, windowHeight);
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
 	glLoadIdentity();
 	glWindowPos2i(0.01*x*windowWidth, 0.01*y*windowHeight);
 	std::string s = text;
-	void * font = GLUT_BITMAP_9_BY_15;
+	void * font = GLUT_BITMAP_TIMES_ROMAN_24;
 	for (std::string::iterator i = s.begin(); i != s.end(); ++i)
 	{
 		char c = *i;
@@ -513,8 +514,8 @@ void drawHealth(float health) {
 	glBegin(GL_QUADS);
 	for (float i = 0; i < health; i += (sep + barHeight)) {
 		glVertex2f(0, i);
-		glVertex2f(0.1f, i);
-		glVertex2f(0.1f, i + barHeight);
+		glVertex2f(0.08f, i);
+		glVertex2f(0.08f, i + barHeight);
 		glVertex2f(0, i + barHeight);
 	}
 	glEnd();
@@ -550,7 +551,7 @@ void drawStaticScene(int hp, int weapon, int armor, int sources) {
 	float _hp = bar[hp];
 	float _weapon = bar[weapon];
 	float _armor = bar[armor];
-	glm::vec3 translateVec = glm::vec3(simple(92), simple(3), 0.f);
+	glm::vec3 translateVec = glm::vec3(simple(94), simple(3), 0.f);
 	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
 		1, GL_FALSE, (float*)&glm::translate(translateVec));
 
@@ -561,18 +562,18 @@ void drawStaticScene(int hp, int weapon, int armor, int sources) {
 	glUniform3f(glGetUniformLocation(programStatic, "objectColor"), color.x, color.y, color.z);
 
 	printShop("[1] Weapon:", 1, 88);
-	translateVec = glm::vec3(simple(18.5f), simple(88), 0.f);
+	translateVec = glm::vec3(simple(9.5f), simple(88), 0.f);
 	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
 		1, GL_FALSE, (float*)&glm::translate(translateVec));
 	drawHealth(_weapon);
 
-	printShop("[2] Armor:", 26, 88);
-	translateVec = glm::vec3(simple(42), simple(88), 0.f);
+	printShop("[2] Armor:", 16, 88);
+	translateVec = glm::vec3(simple(23.5f), simple(88), 0.f);
 	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
 		1, GL_FALSE, (float*)&glm::translate(translateVec));
 	drawHealth(_armor);
 	std::string src = std::to_string(sources);
-	printShop(src, 92, 92);
+	printShop(src, 94, 94);
 }
 
 void drawPlanets() {
@@ -602,10 +603,10 @@ void setSpotLight() {
 	glUniform3fv(glGetUniformLocation(programTexture, "spotLight.direction"), 1, (float*)&cameraDir);
 	glUniform3fv(glGetUniformLocation(programTexture, "spotLight.color"), 1, (float*)&glm::vec3(1.0f, 1.0f, 0.75f));
 	glUniform1f(glGetUniformLocation(programTexture, "spotLight.constant"), 1.0f);
-	glUniform1f(glGetUniformLocation(programTexture, "spotLight.linear"), 0.09);
-	glUniform1f(glGetUniformLocation(programTexture, "spotLight.quadratic"), 0.04);
-	glUniform1f(glGetUniformLocation(programTexture, "spotLight.cutOff"), glm::cos(glm::radians(10.0f)));
-	glUniform1f(glGetUniformLocation(programTexture, "spotLight.outerCutOff"), glm::cos(glm::radians(14.0f)));
+	glUniform1f(glGetUniformLocation(programTexture, "spotLight.linear"), 0.009);
+	glUniform1f(glGetUniformLocation(programTexture, "spotLight.quadratic"), 0.00004);
+	glUniform1f(glGetUniformLocation(programTexture, "spotLight.cutOff"), glm::cos(glm::radians(20.0f)));
+	glUniform1f(glGetUniformLocation(programTexture, "spotLight.outerCutOff"), glm::cos(glm::radians(28.0f)));
 	glUniform3fv(glGetUniformLocation(programTexture, "viewPos"), 1, (float*)&cameraPos);
 	glUseProgram(0);
 }
@@ -642,10 +643,11 @@ void renderScene()
 			physicsTimeToProcess -= physicsStepTime;
 		}
 	}
-
+	
 	// Aktualizacja macierzy widoku i rzutowania
 	cameraMatrix = createCameraMatrix();
-	perspectiveMatrix = Core::createPerspectiveMatrix();
+	perspectiveMatrix = Core::createPerspectiveMatrix(0.1f, 1000.0f, float(windowWidth/windowHeight));
+
 
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -751,8 +753,6 @@ void init()
 	initRenderables();
 	initPhysicsScene();
 	initStatic();
-	//Core::setA(1);
-	//std::cout << Core::getA();
 	engineON = false;
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
@@ -762,7 +762,7 @@ void init()
 	explosionTexture = Core::LoadTexture("textures/particles/explosion.png");
 	
 	
-	
+	glViewport(0, 0, windowWidth, windowHeight);
 }
 
 void shutdown()
@@ -783,11 +783,6 @@ void idle()
 	glutPostRedisplay();
 }
 
-void onReshape(int width, int height)
-{	
-	//Core::setFrustumScale((float)width / height);
-	glViewport(0, 0, width, height);
-}
 
 int main(int argc, char ** argv)
 {
@@ -797,6 +792,10 @@ int main(int argc, char ** argv)
 	glutInitWindowSize(windowWidth, windowHeight);
 	glutCreateWindow("Space shitter");
 	glewInit();
+	windowWidth = glutGet(GLUT_SCREEN_WIDTH);
+	windowHeight = glutGet(GLUT_SCREEN_HEIGHT);
+	glutFullScreen();
+
 	glutSetCursor(GLUT_CURSOR_NONE);
 	init();
 	glutKeyboardFunc(keyboard);

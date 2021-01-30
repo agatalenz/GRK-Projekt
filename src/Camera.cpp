@@ -1,10 +1,7 @@
 #include "Camera.h"
-float frustumScale = 1.1f;
-void setFrustumScale(float x) {
-	frustumScale =  x;
-};
+#include "freeglut.h"
 
-glm::mat4 Core::createPerspectiveMatrix(float zNear, float zFar)
+glm::mat4 Core::createPerspectiveMatrix(float zNear, float zFar, float frustumScale)
 {
 	glm::mat4 perspective;
 	perspective[0][0] = frustumScale;
