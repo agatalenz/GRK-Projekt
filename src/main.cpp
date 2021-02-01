@@ -202,7 +202,7 @@ void generateGem(float x, float y, float z) {
 	PxShape* gemShape = pxScene.physics->createShape(PxSphereGeometry(2.f), *gemMaterial);
 	gemBody->attachShape(*gemShape);
 	gemShape->release();
-
+	gemBody->setName("gem");
 	gemBody->userData = renderables[1];
 	pxScene.scene->addActor(*gemBody);
 }
@@ -215,7 +215,9 @@ void initPhysicsScene()
 	
 	PxShape* shipShape = pxScene.physics->createShape(PxSphereGeometry(2.f), *shipMaterial);
 	shipBody->attachShape(*shipShape);
+	//shipBody->setLinearVelocity(PxVec3(10.f, 0.f, 5.f));
 	shipShape->release();
+	shipBody->setName("ship");
 	shipBody->userData = renderables[0];
 	pxScene.scene->addActor(*shipBody);
 
@@ -741,8 +743,8 @@ void init()
 	textureShip = Core::LoadTexture("textures/ship/cruiser01_diffuse.png");
 	textureShipNormal = Core::LoadTexture("textures/ship/cruiser01_secular.png");
 	irrklang::ISound* snd = SoundEngine->play2D("dependencies/irrklang/media/theme.mp3", true, false, true);
-	//snd->setVolume(0.009f); komentuje tylko żeby sobie posłuchać głosniej
-	snd->setVolume(0.04f);
+	snd->setVolume(0.009f); /*komentuje tylko żeby sobie posłuchać głosniej*/
+	//snd->setVolume(0.04f);
 	firstMouse = true;
 	sphereModel = obj::loadModelFromFile("models/sphere.obj");
 	texturePlanet = Core::LoadTexture("textures/asteroids/unnamed.png");
