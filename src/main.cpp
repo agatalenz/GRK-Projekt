@@ -6,7 +6,6 @@
 #include <cmath>
 #include <vector>
 #include <map>
-
 #include "Skybox.h"
 #include "Shader_Loader.h"
 #include "Render_Utils.h"
@@ -20,6 +19,7 @@
 #include <irrKlang.h>
 #include "ParticleEmiter.h"
 #include "ParticleEmiterTex.h"
+
 // obj
 ParticleEmitter* particleEmitter_LeftEngine;
 ParticleEmitter* particleEmitter_RightEngine;
@@ -34,7 +34,7 @@ GLuint explosionTexture;
 
 
 using namespace irrklang;
-//#pragma comment(lib, "irrKlang.lib") // chuj wie co to robi // już nic hehe bo skomentowane
+//#pragma comment(lib, "irrKlang.lib") 
 
 ISoundEngine* SoundEngine = createIrrKlangDevice();
 
@@ -72,7 +72,6 @@ Core::Shader_Loader shaderLoader;
 
 obj::Model shipModel, sphereModel, gemModel;
 
-
 glm::vec3 cameraPos = glm::vec3(0, 0, 0);
 glm::vec3 cameraDir; // Wektor "do przodu" kamery
 glm::vec3 cameraSide; // Wektor "w bok" kamery
@@ -91,15 +90,17 @@ int amountHp, amountArmor, amountWeapon, amountSources;
 PxRigidStatic *asteroidBody = nullptr;
 PxMaterial *asteroidMaterial = nullptr;
 PxRigidDynamic* shipBody = nullptr;
-PxMaterial* shipMaterial = nullptr;
 PxRigidDynamic* gemBody = nullptr;
+PxMaterial* shipMaterial = nullptr;
 PxMaterial* gemMaterial = nullptr;
+
 
 // renderable objects (description of a single renderable instance)
 struct Renderable {
 	Core::RenderContext* context;
 	glm::mat4 modelMatrix;
 	GLuint textureId;
+	//bool isRendered = true;
 };
 std::vector<Renderable*> renderables;
 
@@ -195,23 +196,11 @@ void initRenderables()
 	renderables.emplace_back(gem);
 }
 
-void generateGem(float x, float y, float z) {
-
-	gemMaterial = pxScene.physics->createMaterial(1, 1, 1);
-	PxRigidDynamic* gemBody = pxScene.physics->createRigidDynamic(PxTransform(x, y, z));
-	PxShape* gemShape = pxScene.physics->createShape(PxSphereGeometry(2.f), *gemMaterial);
-	gemBody->attachShape(*gemShape);
-	gemShape->release();
-
-	gemBody->userData = renderables[1];
-	pxScene.scene->addActor(*gemBody);
-}
-
 
 void initPhysicsScene()
 {
 	shipMaterial = pxScene.physics->createMaterial(1, 1, 1);
-	PxRigidDynamic* shipBody = pxScene.physics->createRigidDynamic(PxTransform(cameraPos.x, cameraPos.y, cameraPos.z));
+	shipBody = pxScene.physics->createRigidDynamic(PxTransform(cameraPos.x, cameraPos.y, cameraPos.z));
 	
 	PxShape* shipShape = pxScene.physics->createShape(PxSphereGeometry(2.f), *shipMaterial);
 	shipBody->attachShape(*shipShape);
@@ -219,7 +208,16 @@ void initPhysicsScene()
 	shipBody->userData = renderables[0];
 	pxScene.scene->addActor(*shipBody);
 
-	generateGem(1, 2, 2);
+	//glm::vec3 pos = glm::ballRand(20.0);
+	gemMaterial = pxScene.physics->createMaterial(1, 1, 1);
+
+	gemBody = pxScene.physics->createRigidDynamic(PxTransform(1, 1, -20));
+	PxShape* gemShape = pxScene.physics->createShape(PxBoxGeometry(1, 1, 1), *gemMaterial);
+	gemBody->attachShape(*gemShape);
+	gemShape->release();
+	gemBody->userData = renderables[1];
+
+	pxScene.scene->addActor(*gemBody);
 }
 
 void updateTransforms()
@@ -648,19 +646,16 @@ void renderScene()
 	cameraMatrix = createCameraMatrix();
 	perspectiveMatrix = Core::createPerspectiveMatrix(0.1f, 1000.0f, float(windowWidth/windowHeight));
 
-
-
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glClearColor(0.0f, 0.1f, 0.3f, 1.0f);
 
 	setSpotLight();
 
-
 	Skybox::drawSkybox(programSkybox, cameraMatrix, perspectiveMatrix, cubemapTexture);
 
 	glm::mat4 shipInitialTransformation = glm::translate(glm::vec3(0, -0.25f, 0)) * glm::rotate(glm::radians(180.0f), glm::vec3(0, 1, 0)) * glm::scale(glm::vec3(0.25f));
-	glm::mat4 shipModelMatrix = glm::translate(cameraPos + cameraDir * 0.5f) * glm::mat4_cast(glm::inverse(rotation)) * shipInitialTransformation;
-	
+	glm::mat4 shipModelMatrix = glm::translate(cameraPos + cameraDir * 0.5f) * glm::mat4_cast(glm::inverse(rotation)) * shipInitialTransformation;	
+
 	if (!explode) {
 		drawObjectTextureFromContext(renderables[0]->context, shipModelMatrix * glm::scale(glm::vec3(0.075f)), renderables[0]->textureId);
 		expl_time = 0.0;
@@ -671,13 +666,30 @@ void renderScene()
 		particleEmitter_ShipExplode->draw();
 	}	
 
+	// gems
+	for (int i = 1; i < renderables.size(); i++) {		
+		glm::mat4 transformation = renderables[i]->modelMatrix * glm::mat4_cast(glm::inverse(rotation));
+		drawObjectTextureFromContext(renderables[i]->context, transformation, renderables[i]->textureId);
+		glm::vec3 position = cameraPos;
+		PxVec3 gemPos = gemBody->getGlobalPose().p;
+		float distance = glm::distance(glm::vec3(position.x, position.y, position.z), glm::vec3(gemPos.x, gemPos.y, gemPos.z));
+
+		if (distance < 10.f) {
+			renderables.erase(renderables.begin() + i);
+			addCash();
+		}
+	}
+
+	//asteroids
 	for (Asteroid asteroid : asteroids) {
 
 		drawObjectTexture(&asteroid.Model, asteroid.Coordinates, asteroid.Texture);
 	}
 	
+	//planets
 	drawPlanets();
 	
+	//UI
 	glUseProgram(programStatic);
 	drawStaticScene(amountHp, amountWeapon, amountArmor, amountSources);
 	glUseProgram(0);
@@ -692,10 +704,6 @@ void renderScene()
 	}
 
 	updateTransforms();
-
-	//drawObjectTextureFromContext(renderables[0]->context, renderables[0]->modelMatrix, renderables[0]->textureId);
-	drawObjectTextureFromContext(renderables[1]->context, renderables[1]->modelMatrix, renderables[1]->textureId);
-	
 	glutSwapBuffers();
 }
 
@@ -772,6 +780,8 @@ void shutdown()
 	shaderLoader.DeleteProgram(programSkybox);
 	shaderLoader.DeleteProgram(programExplode);
 	shaderLoader.DeleteProgram(programStatic);
+	shaderLoader.DeleteProgram(programTextureParticle);
+	shaderLoader.DeleteProgram(programEngineParticle);
 
 	particleEmitter_LeftEngine->~ParticleEmitter();
 	particleEmitter_RightEngine->~ParticleEmitter();
