@@ -780,6 +780,8 @@ void shutdown()
 	shaderLoader.DeleteProgram(programSkybox);
 	shaderLoader.DeleteProgram(programExplode);
 	shaderLoader.DeleteProgram(programStatic);
+	shaderLoader.DeleteProgram(programTextureParticle);
+	shaderLoader.DeleteProgram(programEngineParticle);
 
 	particleEmitter_LeftEngine->~ParticleEmitter();
 	particleEmitter_RightEngine->~ParticleEmitter();
