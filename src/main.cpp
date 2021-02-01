@@ -49,6 +49,8 @@ GLuint programStatic;
 GLuint programExplode;
 GLuint programTextureParticle;
 
+GLuint winHandle;
+
 Core::RenderContext shipContext;
 Core::RenderContext gemContext;
 
@@ -364,6 +366,7 @@ void keyboard(unsigned char key, int x, int y)
 	case '1': upWeapon(); break;
 	case '2': upArmor(); break;
 	case '3': addCash(); break;
+	case 27: glutDestroyWindow(winHandle); break;
 	}
 }
 
@@ -800,7 +803,7 @@ int main(int argc, char ** argv)
 	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
 	glutInitWindowPosition(200, 200);
 	glutInitWindowSize(windowWidth, windowHeight);
-	glutCreateWindow("Space shitter");
+	winHandle = glutCreateWindow("Space shitter");
 	glewInit();
 	windowWidth = glutGet(GLUT_SCREEN_WIDTH);
 	windowHeight = glutGet(GLUT_SCREEN_HEIGHT);
