@@ -20,6 +20,7 @@
 #include "ParticleEmiter.h"
 #include "ParticleEmiterTex.h"
 
+int winHandle;
 // obj
 ParticleEmitter* particleEmitter_LeftEngine;
 ParticleEmitter* particleEmitter_RightEngine;
@@ -196,7 +197,6 @@ void initRenderables()
 	renderables.emplace_back(gem);
 }
 
-<<<<<<< HEAD
 void generateGem(float x, float y, float z) {
 
 	gemMaterial = pxScene.physics->createMaterial(1, 1, 1);
@@ -208,9 +208,6 @@ void generateGem(float x, float y, float z) {
 	gemBody->userData = renderables[1];
 	pxScene.scene->addActor(*gemBody);
 }
-
-=======
->>>>>>> fd433a78e6319e7e7cd43170dd2b97f54cb7c6b5
 
 void initPhysicsScene()
 {
@@ -381,6 +378,7 @@ void keyboard(unsigned char key, int x, int y)
 	case '1': upWeapon(); break;
 	case '2': upArmor(); break;
 	case '3': addCash(); break;
+	case 27: glutDestroyWindow(winHandle); break;
 	}
 }
 
@@ -817,7 +815,7 @@ int main(int argc, char ** argv)
 	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
 	glutInitWindowPosition(200, 200);
 	glutInitWindowSize(windowWidth, windowHeight);
-	glutCreateWindow("Space shitter");
+	winHandle = glutCreateWindow("Space shitter");
 	glewInit();
 	windowWidth = glutGet(GLUT_SCREEN_WIDTH);
 	windowHeight = glutGet(GLUT_SCREEN_HEIGHT);
