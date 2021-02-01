@@ -100,6 +100,7 @@ struct Renderable {
 	Core::RenderContext* context;
 	glm::mat4 modelMatrix;
 	GLuint textureId;
+	//bool isRendered = true;
 };
 std::vector<Renderable*> renderables;
 
@@ -653,25 +654,7 @@ void renderScene()
 	Skybox::drawSkybox(programSkybox, cameraMatrix, perspectiveMatrix, cubemapTexture);
 
 	glm::mat4 shipInitialTransformation = glm::translate(glm::vec3(0, -0.25f, 0)) * glm::rotate(glm::radians(180.0f), glm::vec3(0, 1, 0)) * glm::scale(glm::vec3(0.25f));
-	glm::mat4 shipModelMatrix = glm::translate(cameraPos + cameraDir * 0.5f) * glm::mat4_cast(glm::inverse(rotation)) * shipInitialTransformation;
-	
-	// gems
-	for (int i = 1; i < renderables.size(); i++) {
-
-		glm::mat4 transformation = renderables[i]->modelMatrix * glm::mat4_cast(glm::inverse(rotation));
-		drawObjectTextureFromContext(renderables[i]->context, transformation, renderables[i]->textureId);
-	}
-
-	glm::vec3 position = cameraPos;
-	PxVec3 gemPos = gemBody->getGlobalPose().p;
-	float distance = glm::distance(glm::vec3(position.x, position.y, position.z), glm::vec3(gemPos.x, gemPos.y, gemPos.z));
-
-	if (distance < 10.f) {
-
-		//pxScene.scene->removeActor(gemBody);
-		//renderables.pop_back();
-		addCash();
-	}
+	glm::mat4 shipModelMatrix = glm::translate(cameraPos + cameraDir * 0.5f) * glm::mat4_cast(glm::inverse(rotation)) * shipInitialTransformation;	
 
 	if (!explode) {
 		drawObjectTextureFromContext(renderables[0]->context, shipModelMatrix * glm::scale(glm::vec3(0.075f)), renderables[0]->textureId);
@@ -683,13 +666,30 @@ void renderScene()
 		particleEmitter_ShipExplode->draw();
 	}	
 
+	// gems
+	for (int i = 1; i < renderables.size(); i++) {		
+		glm::mat4 transformation = renderables[i]->modelMatrix * glm::mat4_cast(glm::inverse(rotation));
+		drawObjectTextureFromContext(renderables[i]->context, transformation, renderables[i]->textureId);
+		glm::vec3 position = cameraPos;
+		PxVec3 gemPos = gemBody->getGlobalPose().p;
+		float distance = glm::distance(glm::vec3(position.x, position.y, position.z), glm::vec3(gemPos.x, gemPos.y, gemPos.z));
+
+		if (distance < 10.f) {
+			renderables.erase(renderables.begin() + i);
+			addCash();
+		}
+	}
+
+	//asteroids
 	for (Asteroid asteroid : asteroids) {
 
 		drawObjectTexture(&asteroid.Model, asteroid.Coordinates, asteroid.Texture);
 	}
 	
+	//planets
 	drawPlanets();
 	
+	//UI
 	glUseProgram(programStatic);
 	drawStaticScene(amountHp, amountWeapon, amountArmor, amountSources);
 	glUseProgram(0);
