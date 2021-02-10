@@ -20,7 +20,6 @@
 #include "ParticleEmiter.h"
 #include "ParticleEmiterTex.h"
 
-int winHandle;
 // obj
 ParticleEmitter* particleEmitter_LeftEngine;
 ParticleEmitter* particleEmitter_RightEngine;
@@ -214,7 +213,7 @@ void generateGem(float x, float y, float z) {
 void initPhysicsScene()
 {
 	shipMaterial = pxScene.physics->createMaterial(1, 1, 1);
-	shipBody = pxScene.physics->createRigidDynamic(PxTransform(cameraPos.x, cameraPos.y, cameraPos.z));
+	shipBody = pxScene.physics->createRigidDynamic(PxTransform(1,1, -20));
 	
 	PxShape* shipShape = pxScene.physics->createShape(PxSphereGeometry(2.f), *shipMaterial);
 	shipBody->attachShape(*shipShape);
