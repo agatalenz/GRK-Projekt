@@ -346,7 +346,34 @@ void addCash() {
 	//just to test
 	amountSources++;
 }
+
 bool engineON;
+float maxSpeed = 10;
+float acceleration = 0;
+
+void speedUp() {
+	if (acceleration < maxSpeed) {
+		acceleration += 0.1;
+	}	
+	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
+	shipBody->setLinearVelocity(velocity);
+}
+
+void slowDown() {
+	if (acceleration > 0) {
+		acceleration -= 0.1;
+	}
+	else {
+		acceleration = 0;
+	}
+	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
+	shipBody->setLinearVelocity(velocity);	
+}
+
+void changeFlightDir() {
+	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
+	shipBody->setLinearVelocity(velocity);
+}
 
 void keyboard(unsigned char key, int x, int y)
 {
@@ -357,8 +384,18 @@ void keyboard(unsigned char key, int x, int y)
 	{	
 	case 'z': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, 1))* rotation; break;
 	case 'x': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, -1))* rotation; break;
-	case 'w': cameraPos += cameraDir * moveSpeed; enableEngines(); break;
-	case 's': cameraPos -= cameraDir * moveSpeed; disableEngines(); break;
+	case 'w': {
+		//cameraPos += cameraDir * moveSpeed;
+		speedUp();
+		enableEngines();
+		break;
+	}
+	case 's': {
+		//cameraPos -= cameraDir * moveSpeed;
+		slowDown();
+		disableEngines();
+		break;
+	} 
 	case 'd': cameraPos += cameraSide * moveSpeed; break;
 	case 'a': cameraPos -= cameraSide * moveSpeed; break;
 	case 'e': explode = true; particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 2000, 0.05, explosionTexture); disableEngines(); break;
@@ -645,6 +682,10 @@ void renderScene()
 		}
 	}
 	
+	changeFlightDir();
+	PxVec3 transform = shipBody->getGlobalPose().p;
+	cameraPos = glm::vec3(transform.x, transform.y + 2, transform.z + 10);
+
 	// Aktualizacja macierzy widoku i rzutowania
 	cameraMatrix = createCameraMatrix();
 	perspectiveMatrix = Core::createPerspectiveMatrix(0.1f, 1000.0f, float(windowWidth/windowHeight));
