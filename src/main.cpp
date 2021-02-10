@@ -725,7 +725,7 @@ void renderScene()
 
 	// gems
 	for (int i = 1; i < renderables.size(); i++) {		
-		glm::mat4 transformation = renderables[i]->modelMatrix * glm::mat4_cast(glm::inverse(rotation));
+		glm::mat4 transformation = renderables[i]->modelMatrix;
 		drawObjectTextureFromContext(renderables[i]->context, transformation, renderables[i]->textureId);
 		glm::vec3 position = cameraPos;
 		PxVec3 gemPos = gemBody->getGlobalPose().p;
