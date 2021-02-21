@@ -93,8 +93,38 @@ glm::quat rotation = glm::quat(1, 0, 0, 0);
 
 int amountHp, amountArmor, amountWeapon, amountSources;
 
+bool explode = false;
+float expl_time = 0.0f;
+float expl_speed = 0.03f;
+bool engineON;
+float maxSpeed = 10;
+float acceleration = 0;
+void enableEngines() {
+	if (!engineON) {
+		particleEmitter_LeftEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
+		particleEmitter_RightEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
+		engineON = true;
+	}
+}
+
+void disableEngines() {
+	if (engineON) {
+		particleEmitter_LeftEngine->~ParticleEmitter();
+		particleEmitter_RightEngine->~ParticleEmitter();
+		engineON = false;
+	}
+}
+
 void onHit() {
-	amountHp--;
+	if (amountHp>0) {
+		amountHp--;
+	}
+	if(amountHp == 0) {
+		explode = true; 
+		particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 2000, 0.05, explosionTexture); 
+		disableEngines();
+	}
+	
 }
 
 // physical objects
@@ -129,7 +159,7 @@ static PxFilterFlags simulationFilterShader(PxFilterObjectAttributes attributes0
 
 	return physx::PxFilterFlag::eDEFAULT;
 }
-int delCount = 2;
+
 //------------------------------------------------------------------
 // simulation events processor
 class SimulationEventCallback : public PxSimulationEventCallback
@@ -141,27 +171,32 @@ public:
 		for (PxU32 i = 0; i < nbPairs; i++)
 		{
 			const PxContactPair& cp = pairs[i];
-
-			PxU32 bufferSize = cp.contactCount;
-			std::cout << "Pair: " << i << "; number of contact points: " << bufferSize << std::endl;
-
-			PxContactPairPoint* buffer = new PxContactPairPoint[bufferSize];
-			cp.extractContacts(buffer, bufferSize);
-
-			for (PxU32 i = 0; i < bufferSize; i++)
-			{
-				if (delCount < 10) {
-
-					std::cout << "(x, y, z) = (" << buffer[i].position.x << ", " << buffer[i].position.y << ", " << buffer[i].position.z << ")" << std::endl;
-					/*renderables.erase(renderables.begin() + delCount);
-					std::cout << delCount << std::endl;
-					asteroidsBodies.erase(asteroidsBodies.begin() + delCount);
-					delCount++;*/
+			try {
+				PxU32 bufferSize = cp.contactCount;
+				string shouldBeShip = pairHeader.actors[0]->getName();
+				string shouldBeAsteroid = pairHeader.actors[1]->getName();
+				if (shouldBeShip == "ship" && shouldBeAsteroid == "asteroid") {
 					onHit();
+					//pairHeader.actors[1]->getGlobalPose().p;
 				}
-
-
+				PxContactPairPoint* buffer = new PxContactPairPoint[bufferSize];
+				cp.extractContacts(buffer, bufferSize);
 			}
+			catch(...){
+				cout << "error" << endl;
+			}
+			//for (PxU32 i = 0; i < bufferSize; i++)
+			//{
+
+			//		std::cout << "(x, y, z) = (" << buffer[i].position.x << ", " << buffer[i].position.y << ", " << buffer[i].position.z << ")" << std::endl;
+			//		/*renderables.erase(renderables.begin() + delCount);
+			//		std::cout << delCount << std::endl;
+			//		asteroidsBodies.erase(asteroidsBodies.begin() + delCount);
+			//		delCount++;*/
+			//		
+
+
+			//}
 		}
 		
 	}
@@ -192,18 +227,7 @@ void disableEngines();
 
 void initAsteroidsRenderables() {
 
-	// load asteroids textures
-	for (const auto& file : fs::directory_iterator("textures/asteroids/"))
-		asteroidTextures.push_back(Core::LoadTexture(file.path().string().c_str()));
-
-	// load asteroids models
-	for (const auto& file : fs::directory_iterator("models/asteroids/"))
-		asteroidModels.push_back(obj::loadModelFromFile(file.path().string().c_str()));
-
-	// generate random asteroids
-
 	while (ACTUAL_ASTEROIDS_NUMBER < ASTEROIDS_NUMBER) {
-	//for (int k=0; k<ASTEROIDS_NUMBER; k++){
 
 		int textureIndex = rand() % asteroidTextures.size();
 		int modelIndex = rand() % asteroidModels.size();
@@ -212,9 +236,6 @@ void initAsteroidsRenderables() {
 		obj::Model model = asteroidModels.at(modelIndex);
 
 		asteroidContext.initFromOBJ(model);
-		//asteroids.push_back(Asteroid(glm::ballRand(RADIUS), texture, model));
-		/*PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
-		asteroid->setLinearVelocity(velocity);*/
 		Renderable* asteroid = new Renderable();
 		asteroid->context = &asteroidContext;
 		asteroid->textureId = texture;
@@ -267,13 +288,14 @@ void generateGem(float x, float y, float z) {
 
 void initPhysicsScene()
 {
-	asteroidMaterial = pxScene.physics->createMaterial(1, 1, 1);
+	asteroidMaterial = pxScene.physics->createMaterial(8, 8, 8);
 	for (int j = 0;j < ASTEROIDS_NUMBER;j++) {
 		glm::vec3 rand = astPositions[j];
 		PxRigidDynamic* asteroidBody = pxScene.physics->createRigidDynamic(PxTransform(rand.x, rand.y, rand.z));
-		PxShape* asteroidShape = pxScene.physics->createShape(PxSphereGeometry(3.f), *asteroidMaterial);
+		PxShape* asteroidShape = pxScene.physics->createShape(PxSphereGeometry(2.f), *asteroidMaterial);
 		asteroidBody->attachShape(*asteroidShape);
 		asteroidShape->release();
+		asteroidBody->setName("asteroid");
 		asteroidBody->userData = renderables[j+2];
 		pxScene.scene->addActor(*asteroidBody);
 		asteroidsBodies.push_back(asteroidBody);
@@ -281,7 +303,7 @@ void initPhysicsScene()
 
 	shipMaterial = pxScene.physics->createMaterial(1, 1, 1);
 	shipBody = pxScene.physics->createRigidDynamic(PxTransform(1, 1, 0));
-	PxShape* shipShape = pxScene.physics->createShape(PxSphereGeometry(2.f), *shipMaterial);
+	PxShape* shipShape = pxScene.physics->createShape(PxSphereGeometry(1.f), *shipMaterial);
 	shipBody->attachShape(*shipShape);
 	//shipBody->setLinearVelocity(PxVec3(10.f, 0.f, 5.f));
 	shipShape->release();
@@ -341,9 +363,6 @@ float lastX = 0;
 float lastY = 0;
 float mouseSpeed = 0.5f;
 
-bool explode = false;
-float expl_time = 0.0f;
-float expl_speed = 0.03f;
 
 glm::quat rotationZ = glm::angleAxis(glm::radians(0.f), glm::vec3(0, 0, 1));
 
@@ -423,9 +442,7 @@ void addCash() {
 	amountSources++;
 }
 
-bool engineON;
-float maxSpeed = 10;
-float acceleration = 0;
+
 
 void speedUp() {
 	if (acceleration < maxSpeed) {
@@ -474,7 +491,7 @@ void keyboard(unsigned char key, int x, int y)
 	} 
 	case 'd': cameraPos += cameraSide * moveSpeed; break;
 	case 'a': cameraPos -= cameraSide * moveSpeed; break;
-	case 'e': explode = true; particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 2000, 0.05, explosionTexture); disableEngines(); break;
+	//case 'e': explode = true; particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 2000, 0.05, explosionTexture); disableEngines(); break;
 	case 'r': explode = false; break;
 	case '1': upWeapon(); break;
 	case '2': upArmor(); break;
@@ -708,7 +725,7 @@ void drawPlanets() {
 	rotation = glm::rotate(time / 3.0f, glm::vec3(1.0f, 0.0f, 0.0f));
 	scale = glm::scale(glm::vec3(10.f, 10.f, 10.f));
 	drawObjectTexture(&sphereModel, translation * glm::rotate(time / 2.0f, glm::vec3(0.0f, 0.5f, 0.0f)) * rotation * glm::translate(glm::vec3(100.0f, 30.0f, 0.0f)) * scale, texturePlanet);
-	
+
 }
 
 void setSpotLight() {
@@ -725,21 +742,7 @@ void setSpotLight() {
 	glUseProgram(0);
 }
 
-void enableEngines() {
-	if (!engineON) {
-		particleEmitter_LeftEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
-		particleEmitter_RightEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
-		engineON = true;
-	}	
-}
 
-void disableEngines() {
-	if (engineON) {
-		particleEmitter_LeftEngine->~ParticleEmitter();
-		particleEmitter_RightEngine->~ParticleEmitter();
-		engineON = false;
-	}	
-}
 
 void drawAsteroids() {
 	//initAsteroids();
@@ -749,17 +752,37 @@ void drawAsteroids() {
 	int sizeOfRend = renderables.size();
 
 	for (int i = 2; i < sizeOfRend; i++) {
-		//glm::mat4 transformation = glm::translate(glm::ballRand(RADIUS));
-
 		PxVec3 currentAstPos = asteroidsBodies[i - 2]->getGlobalPose().p;
 		glm::vec3 currentAstGlmPos = glm::vec3(currentAstPos.x, currentAstPos.y, currentAstPos.z);
 		glm::mat4 transformation = glm::translate(currentAstGlmPos);
-		drawObjectTextureFromContext(renderables[i]->context, transformation, renderables[i]->textureId);
 
-		//asteroidsBodies[i - 2]->setLinearVelocity(PxVec3(shipBody->getGlobalPose().p-PxVec3(currentAstPos.x, currentAstPos.y, currentAstPos.z))* .3f);
-		PxVec3 position = shipBody->getGlobalPose().p;
-		glm::vec3 positionGlm = glm::vec3(position.x, position.y, position.z);
-		float distance = glm::distance(positionGlm, glm::vec3(currentAstPos.x, currentAstPos.y, currentAstPos.z));
+		PxVec3 shipPosition = shipBody->getGlobalPose().p;
+		glm::vec3 ballRandVector = glm::ballRand(20.f);
+		glm::vec3 shipPosVector = glm::vec3(shipPosition.x, shipPosition.y, shipPosition.z);
+		glm::vec3 diff = shipPosVector - currentAstGlmPos;
+		if (diff.x > 50 || diff.y > 50 || diff.z > 50) {
+			
+			glm::vec3 astVelocityVector = shipPosVector + ballRandVector;
+			glm::vec3 transformationVector = glm::ballRand(RADIUS)+glm::vec3(10.f) + shipPosVector;
+			glm::mat4 transformation = glm::translate(transformationVector);
+			asteroidsBodies[i-2]->setGlobalPose(PxTransform(transformationVector.x, transformationVector.y, transformationVector.z));
+			currentAstPos = PxVec3(transformationVector.x, transformationVector.y, transformationVector.z);
+			asteroidsBodies[i-2]->setLinearVelocity(PxVec3(PxVec3(astVelocityVector.x, astVelocityVector.y, astVelocityVector.z) - currentAstPos)* .1f);
+			drawObjectTextureFromContext(renderables[i]->context, transformation, renderables[i]->textureId);
+
+		}
+		else {
+			drawObjectTextureFromContext(renderables[i]->context, transformation, renderables[i]->textureId);
+		}
+
+		//glm::vec3 astVelocityVector = shipPosVector + ballRandVector;
+		//asteroidsBodies[i - 2]->setLinearVelocity(PxVec3(PxVec3(astVelocityVector.x, astVelocityVector.y, astVelocityVector.z) - currentAstPos)* .1f);*/
+
+
+
+
+		//glm::vec3 positionGlm = glm::vec3(shipPosition.x, shipPosition.y, shipPosition.z);
+		//float distance = glm::distance(positionGlm, glm::vec3(currentAstPos.x, currentAstPos.y, currentAstPos.z));
 
 		//if (distance < 3.f) {
 		//	std::cout << i << std::endl;
@@ -876,34 +899,32 @@ void renderScene()
 }
 
 void initAsteroids() {
+	// load asteroids textures
+	for (const auto& file : fs::directory_iterator("textures/asteroids/"))
+		asteroidTextures.push_back(Core::LoadTexture(file.path().string().c_str()));
 
-	//// load asteroids textures
-	//for (const auto& file : fs::directory_iterator("textures/asteroids/"))
-	//	asteroidTextures.push_back(Core::LoadTexture(file.path().string().c_str()));
+	// load asteroids models
+	for (const auto& file : fs::directory_iterator("models/asteroids/"))
+		asteroidModels.push_back(obj::loadModelFromFile(file.path().string().c_str()));
 
-	//// load asteroids models
-	//for (const auto& file : fs::directory_iterator("models/asteroids/"))
-	//	asteroidModels.push_back(obj::loadModelFromFile(file.path().string().c_str()));
-
-	// generate random asteroids
-	
-	//while(ACTUAL_ASTEROIDS_NUMBER < ASTEROIDS_NUMBER) {
 	for(int i=0; i< ASTEROIDS_NUMBER; i++){
-
-		//int textureIndex = rand() % asteroidTextures.size();
-		//int modelIndex = rand() % asteroidModels.size();
-
-		//GLuint texture = asteroidTextures.at(textureIndex);
-		//obj::Model model = asteroidModels.at(modelIndex);
-
-		//asteroids.push_back(Asteroid(glm::ballRand(RADIUS), texture, model));
 		astPositions.push_back(glm::ballRand(RADIUS));
+	}
+}
 
+void initAsteroidsVelocity() {
+	for (int i = 0; i < ASTEROIDS_NUMBER; i++) {
+		PxVec3 currentAstPos = asteroidsBodies[i]->getGlobalPose().p;
+		PxVec3 shipPosition = shipBody->getGlobalPose().p;
+		glm::vec3 ballRandVector = glm::ballRand(20.f);
+		glm::vec3 shipPosVector = glm::vec3(shipPosition.x, shipPosition.y, shipPosition.z);
+		glm::vec3 astVelocityVector = shipPosVector + ballRandVector;
+		asteroidsBodies[i]->setLinearVelocity(PxVec3(PxVec3(astVelocityVector.x, astVelocityVector.y, astVelocityVector.z) - currentAstPos)* .1f);
 	}
 }
 
 void initStatic() {
-	amountHp = 5;
+	amountHp = 7;
 	amountWeapon = 1;
 	amountArmor = 1;
 	amountSources = 30;
@@ -932,6 +953,7 @@ void init()
 	initAsteroids();
 	initRenderables();
 	initPhysicsScene();
+	initAsteroidsVelocity();
 	initStatic();
 	engineON = false;
 	glEnable(GL_DEPTH_TEST);
