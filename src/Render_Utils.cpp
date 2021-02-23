@@ -98,3 +98,58 @@ void Core::DrawContext(Core::RenderContext& context)
 	);
 	glBindVertexArray(0);
 }
+
+void Core::RayContext::render()
+{
+
+	glBindVertexArray(vertexArray);
+	glDrawArrays(
+		GL_LINES,// mode
+		0,     //start
+		3 * 7 * 2     // count
+	);
+	glBindVertexArray(0);
+}
+
+
+void Core::initRay(RayContext& rayContext) {
+	rayContext.size = 2;
+	glGenVertexArrays(1, &rayContext.vertexArray);
+	glBindVertexArray(rayContext.vertexArray);
+
+	glGenBuffers(1, &rayContext.vertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, rayContext.vertexBuffer);
+
+	glBufferData(GL_ARRAY_BUFFER, 3 * 7 * 2 * sizeof(float), NULL, GL_DYNAMIC_DRAW);
+
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)(0));
+	glBindVertexArray(0);
+}
+
+void Core::updateRayPos(RayContext& rayContext, std::vector<glm::vec3> ray) {
+	glBindVertexArray(rayContext.vertexArray);
+	std::vector<glm::vec3> keyPoints;
+	float offset = 0.f;
+	float scale = 0.01f;
+	float rayEnd = 50.f;
+	keyPoints.push_back(ray[0] + ray[1] * offset);
+	keyPoints.push_back(ray[0] + ray[1] * rayEnd);
+
+	keyPoints.push_back(ray[0] + ray[1] * offset + scale * glm::vec3(1.f, 1.f, 0.f));
+	keyPoints.push_back(ray[0] + ray[1] * offset - scale * glm::vec3(1.f, 1.f, 0.f));
+	keyPoints.push_back(ray[0] + ray[1] * offset + scale * glm::vec3(1.f, -1.f, 0.f));
+	keyPoints.push_back(ray[0] + ray[1] * offset - scale * glm::vec3(1.f, -1.f, 0.f));
+
+	//keyPoints.push_back(ray[0] + ray[1] * offset + scale * glm::vec3(1.f, 1.f, 0.f));
+	//keyPoints.push_back(ray[0] + ray[1] * rayEnd * scale);
+	//keyPoints.push_back(ray[0] + ray[1] * offset - scale * glm::vec3(1.f, 1.f, 0.f));
+	//keyPoints.push_back(ray[0] + ray[1] * rayEnd * scale);
+	//keyPoints.push_back(ray[0] + ray[1] * offset + scale * glm::vec3(1.f, -1.f, 0.f));
+	//keyPoints.push_back(ray[0] + ray[1] * rayEnd * scale);
+	//keyPoints.push_back(ray[0] + ray[1] * offset - scale * glm::vec3(1.f, -1.f, 0.f));
+	//keyPoints.push_back(ray[0] + ray[1] * rayEnd * scale);
+	glBindBuffer(GL_ARRAY_BUFFER, rayContext.vertexBuffer);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, keyPoints.size() * 3 * sizeof(float), &keyPoints[0]);
+	glBindVertexArray(0);
+}
