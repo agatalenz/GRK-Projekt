@@ -31,7 +31,7 @@ const glm::mat4 engineRotation = glm::rotate(glm::radians(90.0f), glm::vec3(1, 0
 GLuint programEngineParticle;
 // ...
 GLuint explosionTexture;
-
+using namespace std;
 
 using namespace irrklang;
 //#pragma comment(lib, "irrKlang.lib") 
@@ -49,16 +49,23 @@ GLuint programStatic;
 GLuint programExplode;
 GLuint programTextureParticle;
 
+GLuint winHandle;
+
 Core::RenderContext shipContext;
 Core::RenderContext gemContext;
+Core::RenderContext asteroidContext;
 
 const float RADIUS = 100.f;
 const int ASTEROIDS_NUMBER = 50;
+int ACTUAL_ASTEROIDS_NUMBER = 0;
 
 std::vector<GLuint> asteroidTextures;
 std::vector<obj::Model> asteroidModels;
 std::vector<Asteroid> asteroids;
+std::vector<PxRigidDynamic*> asteroidsBodies;
 std::vector<GLuint> texturePlanetAnimated;
+
+std::vector<glm::vec3> astPositions;
 
 GLuint textureShip;
 GLuint textureShipNormal;
@@ -86,11 +93,45 @@ glm::quat rotation = glm::quat(1, 0, 0, 0);
 
 int amountHp, amountArmor, amountWeapon, amountSources;
 
+bool explode = false;
+float expl_time = 0.0f;
+float expl_speed = 0.03f;
+bool engineON;
+float maxSpeed = 10;
+float acceleration = 0;
+void enableEngines() {
+	if (!engineON) {
+		particleEmitter_LeftEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
+		particleEmitter_RightEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
+		engineON = true;
+	}
+}
+
+void disableEngines() {
+	if (engineON) {
+		particleEmitter_LeftEngine->~ParticleEmitter();
+		particleEmitter_RightEngine->~ParticleEmitter();
+		engineON = false;
+	}
+}
+
+void onHit() {
+	if (amountHp>0) {
+		amountHp--;
+	}
+	if(amountHp == 0) {
+		explode = true; 
+		particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 2000, 0.05, explosionTexture); 
+		disableEngines();
+	}
+	
+}
+
 // physical objects
 PxRigidStatic *asteroidBody = nullptr;
-PxMaterial *asteroidMaterial = nullptr;
 PxRigidDynamic* shipBody = nullptr;
 PxRigidDynamic* gemBody = nullptr;
+PxMaterial *asteroidMaterial = nullptr;
 PxMaterial* shipMaterial = nullptr;
 PxMaterial* gemMaterial = nullptr;
 
@@ -100,6 +141,7 @@ struct Renderable {
 	Core::RenderContext* context;
 	glm::mat4 modelMatrix;
 	GLuint textureId;
+	//bool isRendered = true;
 };
 std::vector<Renderable*> renderables;
 
@@ -129,17 +171,32 @@ public:
 		for (PxU32 i = 0; i < nbPairs; i++)
 		{
 			const PxContactPair& cp = pairs[i];
-
-			PxU32 bufferSize = cp.contactCount;
-			std::cout << "Pair: " << i << "; number of contact points: " << bufferSize << std::endl;
-
-			PxContactPairPoint* buffer = new PxContactPairPoint[bufferSize];
-			cp.extractContacts(buffer, bufferSize);
-
-			for (PxU32 i = 0; i < bufferSize; i++)
-			{
-				std::cout << "(x, y, z) = (" << buffer[i].position.x << ", " << buffer[i].position.y << ", " << buffer[i].position.z << ")" << std::endl;
+			try {
+				PxU32 bufferSize = cp.contactCount;
+				string shouldBeShip = pairHeader.actors[0]->getName();
+				string shouldBeAsteroid = pairHeader.actors[1]->getName();
+				if (shouldBeShip == "ship" && shouldBeAsteroid == "asteroid") {
+					onHit();
+					//pairHeader.actors[1]->getGlobalPose().p;
+				}
+				PxContactPairPoint* buffer = new PxContactPairPoint[bufferSize];
+				cp.extractContacts(buffer, bufferSize);
 			}
+			catch(...){
+				cout << "error" << endl;
+			}
+			//for (PxU32 i = 0; i < bufferSize; i++)
+			//{
+
+			//		std::cout << "(x, y, z) = (" << buffer[i].position.x << ", " << buffer[i].position.y << ", " << buffer[i].position.z << ")" << std::endl;
+			//		/*renderables.erase(renderables.begin() + delCount);
+			//		std::cout << delCount << std::endl;
+			//		asteroidsBodies.erase(asteroidsBodies.begin() + delCount);
+			//		delCount++;*/
+			//		
+
+
+			//}
 		}
 		
 	}
@@ -168,6 +225,25 @@ double physicsTimeToProcess = 0;
 void enableEngines();
 void disableEngines();
 
+void initAsteroidsRenderables() {
+
+	while (ACTUAL_ASTEROIDS_NUMBER < ASTEROIDS_NUMBER) {
+
+		int textureIndex = rand() % asteroidTextures.size();
+		int modelIndex = rand() % asteroidModels.size();
+
+		GLuint texture = asteroidTextures.at(textureIndex);
+		obj::Model model = asteroidModels.at(modelIndex);
+
+		asteroidContext.initFromOBJ(model);
+		Renderable* asteroid = new Renderable();
+		asteroid->context = &asteroidContext;
+		asteroid->textureId = texture;
+		renderables.emplace_back(asteroid);
+
+		ACTUAL_ASTEROIDS_NUMBER++;
+	}
+}
 
 void initRenderables()
 {
@@ -193,23 +269,50 @@ void initRenderables()
 	gem->context = &gemContext;
 	gem->textureId = textureGem;
 	renderables.emplace_back(gem);
+
+	//asteroids
+	initAsteroidsRenderables();
 }
 
+void generateGem(float x, float y, float z) {
+
+	gemMaterial = pxScene.physics->createMaterial(1, 1, 1);
+	PxRigidDynamic* gemBody = pxScene.physics->createRigidDynamic(PxTransform(x, y, z));
+	PxShape* gemShape = pxScene.physics->createShape(PxSphereGeometry(2.f), *gemMaterial);
+	gemBody->attachShape(*gemShape);
+	gemShape->release();
+	gemBody->setName("gem");
+	gemBody->userData = renderables[1];
+	pxScene.scene->addActor(*gemBody);
+}
 
 void initPhysicsScene()
 {
+	asteroidMaterial = pxScene.physics->createMaterial(8, 8, 8);
+	for (int j = 0;j < ASTEROIDS_NUMBER;j++) {
+		glm::vec3 rand = astPositions[j];
+		PxRigidDynamic* asteroidBody = pxScene.physics->createRigidDynamic(PxTransform(rand.x, rand.y, rand.z));
+		PxShape* asteroidShape = pxScene.physics->createShape(PxSphereGeometry(2.f), *asteroidMaterial);
+		asteroidBody->attachShape(*asteroidShape);
+		asteroidShape->release();
+		asteroidBody->setName("asteroid");
+		asteroidBody->userData = renderables[j+2];
+		pxScene.scene->addActor(*asteroidBody);
+		asteroidsBodies.push_back(asteroidBody);
+	}
+
 	shipMaterial = pxScene.physics->createMaterial(1, 1, 1);
-	shipBody = pxScene.physics->createRigidDynamic(PxTransform(cameraPos.x, cameraPos.y, cameraPos.z));
-	
-	PxShape* shipShape = pxScene.physics->createShape(PxSphereGeometry(2.f), *shipMaterial);
+	shipBody = pxScene.physics->createRigidDynamic(PxTransform(1, 1, 0));
+	PxShape* shipShape = pxScene.physics->createShape(PxSphereGeometry(1.f), *shipMaterial);
 	shipBody->attachShape(*shipShape);
+	//shipBody->setLinearVelocity(PxVec3(10.f, 0.f, 5.f));
 	shipShape->release();
+	shipBody->setName("ship");
 	shipBody->userData = renderables[0];
 	pxScene.scene->addActor(*shipBody);
 
 	//glm::vec3 pos = glm::ballRand(20.0);
 	gemMaterial = pxScene.physics->createMaterial(1, 1, 1);
-
 	gemBody = pxScene.physics->createRigidDynamic(PxTransform(1, 1, -20));
 	PxShape* gemShape = pxScene.physics->createShape(PxBoxGeometry(1, 1, 1), *gemMaterial);
 	gemBody->attachShape(*gemShape);
@@ -260,9 +363,6 @@ float lastX = 0;
 float lastY = 0;
 float mouseSpeed = 0.5f;
 
-bool explode = false;
-float expl_time = 0.0f;
-float expl_speed = 0.03f;
 
 glm::quat rotationZ = glm::angleAxis(glm::radians(0.f), glm::vec3(0, 0, 1));
 
@@ -277,9 +377,7 @@ std::vector<std::string> faces
 	"textures/skybox/space.jpg",	
 };
 
-void onHit() {
-	amountHp++;
-}
+
 
 void sourceGrab() {
 	amountSources++;
@@ -343,7 +441,32 @@ void addCash() {
 	//just to test
 	amountSources++;
 }
-bool engineON;
+
+
+
+void speedUp() {
+	if (acceleration < maxSpeed) {
+		acceleration += 0.1;
+	}	
+	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
+	shipBody->setLinearVelocity(velocity);
+}
+
+void slowDown() {
+	if (acceleration > 0) {
+		acceleration -= 0.1;
+	}
+	else {
+		acceleration = 0;
+	}
+	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
+	shipBody->setLinearVelocity(velocity);	
+}
+
+void changeFlightDir() {
+	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
+	shipBody->setLinearVelocity(velocity);
+}
 
 void keyboard(unsigned char key, int x, int y)
 {
@@ -354,15 +477,26 @@ void keyboard(unsigned char key, int x, int y)
 	{	
 	case 'z': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, 1))* rotation; break;
 	case 'x': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, -1))* rotation; break;
-	case 'w': cameraPos += cameraDir * moveSpeed; enableEngines(); break;
-	case 's': cameraPos -= cameraDir * moveSpeed; disableEngines(); break;
+	case 'w': {
+		//cameraPos += cameraDir * moveSpeed;
+		speedUp();
+		enableEngines();
+		break;
+	}
+	case 's': {
+		//cameraPos -= cameraDir * moveSpeed;
+		slowDown();
+		disableEngines();
+		break;
+	} 
 	case 'd': cameraPos += cameraSide * moveSpeed; break;
 	case 'a': cameraPos -= cameraSide * moveSpeed; break;
-	case 'e': explode = true; particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 2000, 0.05, explosionTexture); disableEngines(); break;
+	//case 'e': explode = true; particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 2000, 0.05, explosionTexture); disableEngines(); break;
 	case 'r': explode = false; break;
 	case '1': upWeapon(); break;
 	case '2': upArmor(); break;
 	case '3': addCash(); break;
+	case 27: glutDestroyWindow(winHandle); break;
 	}
 }
 
@@ -591,7 +725,7 @@ void drawPlanets() {
 	rotation = glm::rotate(time / 3.0f, glm::vec3(1.0f, 0.0f, 0.0f));
 	scale = glm::scale(glm::vec3(10.f, 10.f, 10.f));
 	drawObjectTexture(&sphereModel, translation * glm::rotate(time / 2.0f, glm::vec3(0.0f, 0.5f, 0.0f)) * rotation * glm::translate(glm::vec3(100.0f, 30.0f, 0.0f)) * scale, texturePlanet);
-	
+
 }
 
 void setSpotLight() {
@@ -608,21 +742,74 @@ void setSpotLight() {
 	glUseProgram(0);
 }
 
-void enableEngines() {
-	if (!engineON) {
-		particleEmitter_LeftEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
-		particleEmitter_RightEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030);
-		engineON = true;
-	}	
+
+
+void drawAsteroids() {
+	//initAsteroids();
+	//for (Asteroid asteroid : asteroids) {
+	//	drawObjectTexture(&asteroid.Model, asteroid.Coordinates, asteroid.Texture);
+	//}
+	int sizeOfRend = renderables.size();
+
+	for (int i = 2; i < sizeOfRend; i++) {
+		PxVec3 currentAstPos = asteroidsBodies[i - 2]->getGlobalPose().p;
+		glm::vec3 currentAstGlmPos = glm::vec3(currentAstPos.x, currentAstPos.y, currentAstPos.z);
+		glm::mat4 transformation = glm::translate(currentAstGlmPos);
+
+		PxVec3 shipPosition = shipBody->getGlobalPose().p;
+		glm::vec3 ballRandVector = glm::ballRand(20.f);
+		glm::vec3 shipPosVector = glm::vec3(shipPosition.x, shipPosition.y, shipPosition.z);
+		glm::vec3 diff = shipPosVector - currentAstGlmPos;
+		if (diff.x > 50 || diff.y > 50 || diff.z > 50) {
+			
+			glm::vec3 astVelocityVector = shipPosVector + ballRandVector;
+			glm::vec3 transformationVector = glm::ballRand(RADIUS)+glm::vec3(10.f) + shipPosVector;
+			glm::mat4 transformation = glm::translate(transformationVector);
+			asteroidsBodies[i-2]->setGlobalPose(PxTransform(transformationVector.x, transformationVector.y, transformationVector.z));
+			currentAstPos = PxVec3(transformationVector.x, transformationVector.y, transformationVector.z);
+			asteroidsBodies[i-2]->setLinearVelocity(PxVec3(PxVec3(astVelocityVector.x, astVelocityVector.y, astVelocityVector.z) - currentAstPos)* .1f);
+			drawObjectTextureFromContext(renderables[i]->context, transformation, renderables[i]->textureId);
+
+		}
+		else {
+			drawObjectTextureFromContext(renderables[i]->context, transformation, renderables[i]->textureId);
+		}
+
+		//glm::vec3 astVelocityVector = shipPosVector + ballRandVector;
+		//asteroidsBodies[i - 2]->setLinearVelocity(PxVec3(PxVec3(astVelocityVector.x, astVelocityVector.y, astVelocityVector.z) - currentAstPos)* .1f);*/
+
+
+
+
+		//glm::vec3 positionGlm = glm::vec3(shipPosition.x, shipPosition.y, shipPosition.z);
+		//float distance = glm::distance(positionGlm, glm::vec3(currentAstPos.x, currentAstPos.y, currentAstPos.z));
+
+		//if (distance < 3.f) {
+		//	std::cout << i << std::endl;
+		//	renderables.erase(renderables.begin()+i);
+		//	sizeOfRend--;
+		//	asteroidsBodies.erase(asteroidsBodies.begin() + i-2);
+		//	addCash();
+		//	//ACTUAL_ASTEROIDS_NUMBER--;
+		//	std::cout << "touch" << std::endl;
+
+		//	////////////////////
+		//	auto actorFlags = PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC;
+		//	PxU32 nbActors = pxScene.scene->getNbActors(actorFlags);
+		//	std::vector<PxRigidActor*> actors(nbActors);
+		//	std::cout << pxScene.scene->getActors(actorFlags, (PxActor**)&actors[0], nbActors) << std::endl;
+		//	std::cout << actors[0] << std::endl;
+
+		//	pxScene.scene->removeActor(*actors[i]);
+		//	////////////////////
+
+		//}
+		//std::cout << pxScene.scene->getActiveActors() << std::endl;
+
+	}
 }
 
-void disableEngines() {
-	if (engineON) {
-		particleEmitter_LeftEngine->~ParticleEmitter();
-		particleEmitter_RightEngine->~ParticleEmitter();
-		engineON = false;
-	}	
-}
+bool gemCaught = false;
 
 void renderScene()
 {	
@@ -641,6 +828,10 @@ void renderScene()
 		}
 	}
 	
+	changeFlightDir();
+	PxVec3 transform = shipBody->getGlobalPose().p;
+	cameraPos = glm::vec3(transform.x, transform.y, transform.z);
+
 	// Aktualizacja macierzy widoku i rzutowania
 	cameraMatrix = createCameraMatrix();
 	perspectiveMatrix = Core::createPerspectiveMatrix(0.1f, 1000.0f, float(windowWidth/windowHeight));
@@ -653,25 +844,7 @@ void renderScene()
 	Skybox::drawSkybox(programSkybox, cameraMatrix, perspectiveMatrix, cubemapTexture);
 
 	glm::mat4 shipInitialTransformation = glm::translate(glm::vec3(0, -0.25f, 0)) * glm::rotate(glm::radians(180.0f), glm::vec3(0, 1, 0)) * glm::scale(glm::vec3(0.25f));
-	glm::mat4 shipModelMatrix = glm::translate(cameraPos + cameraDir * 0.5f) * glm::mat4_cast(glm::inverse(rotation)) * shipInitialTransformation;
-	
-	// gems
-	for (int i = 1; i < renderables.size(); i++) {
-
-		glm::mat4 transformation = renderables[i]->modelMatrix * glm::mat4_cast(glm::inverse(rotation));
-		drawObjectTextureFromContext(renderables[i]->context, transformation, renderables[i]->textureId);
-	}
-
-	glm::vec3 position = cameraPos;
-	PxVec3 gemPos = gemBody->getGlobalPose().p;
-	float distance = glm::distance(glm::vec3(position.x, position.y, position.z), glm::vec3(gemPos.x, gemPos.y, gemPos.z));
-
-	if (distance < 10.f) {
-
-		//pxScene.scene->removeActor(gemBody);
-		//renderables.pop_back();
-		addCash();
-	}
+	glm::mat4 shipModelMatrix = glm::translate(cameraPos + cameraDir * 0.5f) * glm::mat4_cast(glm::inverse(rotation)) * shipInitialTransformation;	
 
 	if (!explode) {
 		drawObjectTextureFromContext(renderables[0]->context, shipModelMatrix * glm::scale(glm::vec3(0.075f)), renderables[0]->textureId);
@@ -682,14 +855,32 @@ void renderScene()
 		particleEmitter_ShipExplode->update(0.01f, shipModelMatrix, cameraMatrix, perspectiveMatrix);
 		particleEmitter_ShipExplode->draw();
 	}	
-
-	for (Asteroid asteroid : asteroids) {
-
-		drawObjectTexture(&asteroid.Model, asteroid.Coordinates, asteroid.Texture);
-	}
 	
+	// gems
+	if (!gemCaught) {
+
+		/*for (int i = 1; i < renderables.size(); i++) {	*/
+		for (int i = 1; i < 2; i++) {
+			glm::mat4 transformation = renderables[i]->modelMatrix;
+			drawObjectTextureFromContext(renderables[i]->context, transformation, renderables[i]->textureId);
+			glm::vec3 position = cameraPos;
+			PxVec3 gemPos = gemBody->getGlobalPose().p;
+			float distance = glm::distance(glm::vec3(position.x, position.y, position.z), glm::vec3(gemPos.x, gemPos.y, gemPos.z));
+
+			if (distance < 10.f) {
+				renderables.erase(renderables.begin() + i);
+				addCash();
+				gemCaught = true;
+			}
+		}
+	}
+	//asteroids
+	drawAsteroids();
+
+	//planets
 	drawPlanets();
 	
+	//UI
 	glUseProgram(programStatic);
 	drawStaticScene(amountHp, amountWeapon, amountArmor, amountSources);
 	glUseProgram(0);
@@ -708,7 +899,6 @@ void renderScene()
 }
 
 void initAsteroids() {
-
 	// load asteroids textures
 	for (const auto& file : fs::directory_iterator("textures/asteroids/"))
 		asteroidTextures.push_back(Core::LoadTexture(file.path().string().c_str()));
@@ -717,21 +907,24 @@ void initAsteroids() {
 	for (const auto& file : fs::directory_iterator("models/asteroids/"))
 		asteroidModels.push_back(obj::loadModelFromFile(file.path().string().c_str()));
 
-	// generate random asteroids
+	for(int i=0; i< ASTEROIDS_NUMBER; i++){
+		astPositions.push_back(glm::ballRand(RADIUS));
+	}
+}
+
+void initAsteroidsVelocity() {
 	for (int i = 0; i < ASTEROIDS_NUMBER; i++) {
-
-		int textureIndex = rand() % asteroidTextures.size();
-		int modelIndex = rand() % asteroidModels.size();
-
-		GLuint texture = asteroidTextures.at(textureIndex);
-		obj::Model model = asteroidModels.at(modelIndex);
-
-		asteroids.push_back(Asteroid(glm::ballRand(RADIUS), texture, model));
+		PxVec3 currentAstPos = asteroidsBodies[i]->getGlobalPose().p;
+		PxVec3 shipPosition = shipBody->getGlobalPose().p;
+		glm::vec3 ballRandVector = glm::ballRand(20.f);
+		glm::vec3 shipPosVector = glm::vec3(shipPosition.x, shipPosition.y, shipPosition.z);
+		glm::vec3 astVelocityVector = shipPosVector + ballRandVector;
+		asteroidsBodies[i]->setLinearVelocity(PxVec3(PxVec3(astVelocityVector.x, astVelocityVector.y, astVelocityVector.z) - currentAstPos)* .1f);
 	}
 }
 
 void initStatic() {
-	amountHp = 5;
+	amountHp = 7;
 	amountWeapon = 1;
 	amountArmor = 1;
 	amountSources = 30;
@@ -749,8 +942,8 @@ void init()
 	textureShip = Core::LoadTexture("textures/ship/cruiser01_diffuse.png");
 	textureShipNormal = Core::LoadTexture("textures/ship/cruiser01_secular.png");
 	irrklang::ISound* snd = SoundEngine->play2D("dependencies/irrklang/media/theme.mp3", true, false, true);
-	//snd->setVolume(0.009f); komentuje tylko żeby sobie posłuchać głosniej
-	snd->setVolume(0.04f);
+	snd->setVolume(0.009f); /*komentuje tylko żeby sobie posłuchać głosniej*/
+	//snd->setVolume(0.04f);
 	firstMouse = true;
 	sphereModel = obj::loadModelFromFile("models/sphere.obj");
 	texturePlanet = Core::LoadTexture("textures/asteroids/unnamed.png");
@@ -760,6 +953,7 @@ void init()
 	initAsteroids();
 	initRenderables();
 	initPhysicsScene();
+	initAsteroidsVelocity();
 	initStatic();
 	engineON = false;
 	glEnable(GL_DEPTH_TEST);
@@ -780,6 +974,8 @@ void shutdown()
 	shaderLoader.DeleteProgram(programSkybox);
 	shaderLoader.DeleteProgram(programExplode);
 	shaderLoader.DeleteProgram(programStatic);
+	shaderLoader.DeleteProgram(programTextureParticle);
+	shaderLoader.DeleteProgram(programEngineParticle);
 
 	particleEmitter_LeftEngine->~ParticleEmitter();
 	particleEmitter_RightEngine->~ParticleEmitter();
@@ -798,7 +994,7 @@ int main(int argc, char ** argv)
 	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
 	glutInitWindowPosition(200, 200);
 	glutInitWindowSize(windowWidth, windowHeight);
-	glutCreateWindow("Space shitter");
+	winHandle = glutCreateWindow("Space shitter");
 	glewInit();
 	windowWidth = glutGet(GLUT_SCREEN_WIDTH);
 	windowHeight = glutGet(GLUT_SCREEN_HEIGHT);
