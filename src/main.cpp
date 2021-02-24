@@ -39,6 +39,7 @@ using namespace irrklang;
 ISoundEngine* SoundEngine = createIrrKlangDevice();
 
 Core::RayContext rayContext;
+bool isShooting;
 
 int windowWidth = 600;
 int windowHeight = 600;
@@ -507,10 +508,9 @@ std::vector<glm::vec3> calculate_ray(float x, float y) {
 
 	//here ray should be calculated
 	glm::vec4 start = glm::vec4(screen_space_pos.x, screen_space_pos.y, -1, 1);
-	//start = glm::vec4(PxVecTovec3(shipBody->getGlobalPose().p), 1);
 	start -= glm::vec4(0,1.f,0,0);
-	//start.z -= 4;
-	glm::vec4 end = glm::vec4(screen_space_pos.x, screen_space_pos.y, 1, 1);
+
+	glm::vec4 end = glm::vec4(screen_space_pos.x, screen_space_pos.y, 1, 1);	
 
 	start = glm::inverse(perspectiveMatrix) * start;
 	end = glm::inverse(perspectiveMatrix) * end;
@@ -521,12 +521,25 @@ std::vector<glm::vec3> calculate_ray(float x, float y) {
 	start = glm::inverse(cameraMatrix) * start;
 	end = glm::inverse(cameraMatrix) * end;
 
-	//start.z = -2;
-	//end.z = -3;
-
 	result.push_back(start);
 	result.push_back(glm::normalize(end - start));
 	return result;
+}
+
+std::vector<glm::vec3> ray;
+
+void updateRay() {
+	//int size_x = glutGet(GLUT_WINDOW_WIDTH);
+	//int size_y = glutGet(GLUT_WINDOW_HEIGHT);
+	//float x = shipBody->getGlobalPose().p.x;
+	//float y = shipBody->getGlobalPose().p.y;
+
+	float x = 0.f;
+	float y = 0.f;
+
+	//ray = calculate_ray((x / float(size_x)), ((y / float(size_y))));
+	ray = calculate_ray(x, y);
+	Core::updateRayPos(rayContext, ray);
 }
 
 void mouse(int x, int y)
@@ -547,32 +560,15 @@ void mouse(int x, int y)
 	newMouseX = xoffset;
 	newMouseY = yoffset;
 
-
-	int size_x = glutGet(GLUT_WINDOW_WIDTH);
-	int size_y = glutGet(GLUT_WINDOW_HEIGHT);
-	x = shipBody->getGlobalPose().p.x;
-	y = shipBody->getGlobalPose().p.y;
-	auto ray2 = calculate_ray((x / float(size_x)) * 1, ((y / float(size_y))) * 1);
-	Core::updateRayPos(rayContext, ray2);
-	std::vector<glm::vec3> ray = calculate_ray((x / float(size_x) - 0.5) * 2, -((y / float(size_y)) - 0.5) * 2);
-
 }
 
 
 void click_mouse(int button, int state, int x, int y) {
 	if ((GLUT_LEFT_BUTTON == button && state == GLUT_DOWN)) {
 
-		int size_x = glutGet(GLUT_WINDOW_WIDTH);
-		int size_y = glutGet(GLUT_WINDOW_HEIGHT);
-
-		x = shipBody->getGlobalPose().p.x;
-		y = shipBody->getGlobalPose().p.y;
-		auto ray = calculate_ray((x / float(size_x)) * 1, ((y / float(size_y))) * 1);
-		Core::updateRayPos(rayContext, ray);
-
-		//std::vector<glm::vec3> ray = calculate_ray((x / float(size_x) - 0.5) * 2, -((y / float(size_y)) - 0.5) * 2);
-
+		isShooting = true;
 		
+		updateRay();
 
 		//here raycast should be done
 		PxRaycastBuffer hit;
@@ -583,26 +579,28 @@ void click_mouse(int button, int state, int x, int y) {
 			PxRaycastHit block = hit.block;
 			//check if it is rigid dynamic
 			if (block.actor->getType() == PxActorType::eRIGID_DYNAMIC) {
-				PxRigidDynamic* actor = (PxRigidDynamic*)block.actor;
-				//actor->setLinearVelocity(PxVec3(0, 100, 0));
-				//actor->setMass(1000);
+				PxRigidDynamic* actor = (PxRigidDynamic*)block.actor;				
 				Renderable* actorRenderable = (Renderable*)actor->userData;
 				string actorName = "";
 				if (actorRenderable->context == &shipContext) actorName = "ship";
-				else if (actorRenderable->context == &asteroidContext) actorName = "asteroid";
+				else if (actorRenderable->context == &asteroidContext)
+				{
+					actorName = "asteroid";
+
+					//Do sth with hit asteroid
+					actor->setLinearVelocity(vec3ToPxVec(cameraDir * 50));
+				}
 				else actorName = " else";
 				cout  << actorName << " " << actor->getGlobalPose().p.x << " " << actor->getGlobalPose().p.y << " " << actor->getGlobalPose().p.z << endl;
-				//grabbedObject.actor = actor;
-				//grabbedObject.distance = glm::length(ray[0] - PxVecTovec3(block.position));
-				////grabbedObject.distance = block.distance;  //tak też działa z tego co widzę ale zostawiam tak jak było w zadaniu
-				//grabbedObject.newPos = vec3ToPxVec(ray[0] + ray[1] * grabbedObject.distance);
-				//grabbedObject.update = true;
 				
 			}
 		}
 		else {
 			std::cout << "no hit\n";
 		}
+	}
+	else if ((GLUT_LEFT_BUTTON == button && state == GLUT_UP)) {
+		isShooting = false;
 	}
 }
 
@@ -953,13 +951,11 @@ void renderScene()
 		particleEmitter_RightEngine->draw();
 	}
 
-	int size_x = glutGet(GLUT_WINDOW_WIDTH);
-	int size_y = glutGet(GLUT_WINDOW_HEIGHT);
-	float x = shipBody->getGlobalPose().p.x;
-	float y = shipBody->getGlobalPose().p.y;
-	auto ray2 = calculate_ray((x / float(size_x)) * 1, ((y / float(size_y))) * 1);
-	Core::updateRayPos(rayContext, ray2);
-	drawRay(rayContext);
+	
+	if (isShooting) {
+		updateRay();
+		drawRay(rayContext);
+	}	
 
 	updateTransforms();
 	glutSwapBuffers();
@@ -1035,8 +1031,7 @@ void init()
 
 
 	Core::initRay(rayContext);
-	auto ray = calculate_ray(0.5f, 0.5f);
-	Core::updateRayPos(rayContext, ray);
+	updateRay();
 	
 	
 	glViewport(0, 0, windowWidth, windowHeight);

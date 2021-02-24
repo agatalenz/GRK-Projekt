@@ -130,18 +130,18 @@ void Core::initRay(RayContext& rayContext) {
 void Core::updateRayPos(RayContext& rayContext, std::vector<glm::vec3> ray) {
 	glBindVertexArray(rayContext.vertexArray);
 	std::vector<glm::vec3> keyPoints;
-	float offset = 0.f;
+	float offset = .15f;
 	float scale = 0.01f;
-	float rayEnd = 50.f;
+	float rayEnd = 5.f;
 	keyPoints.push_back(ray[0] + ray[1] * offset);
 	keyPoints.push_back(ray[0] + ray[1] * rayEnd);
 
-	keyPoints.push_back(ray[0] + ray[1] * offset + scale * glm::vec3(1.f, 1.f, 0.f));
-	keyPoints.push_back(ray[0] + ray[1] * offset - scale * glm::vec3(1.f, 1.f, 0.f));
-	keyPoints.push_back(ray[0] + ray[1] * offset + scale * glm::vec3(1.f, -1.f, 0.f));
-	keyPoints.push_back(ray[0] + ray[1] * offset - scale * glm::vec3(1.f, -1.f, 0.f));
-
 	//keyPoints.push_back(ray[0] + ray[1] * offset + scale * glm::vec3(1.f, 1.f, 0.f));
+	//keyPoints.push_back(ray[0] + ray[1] * offset - scale * glm::vec3(1.f, 1.f, 0.f));
+	//keyPoints.push_back(ray[0] + ray[1] * offset + scale * glm::vec3(1.f, -1.f, 0.f));
+	//keyPoints.push_back(ray[0] + ray[1] * offset - scale * glm::vec3(1.f, -1.f, 0.f));
+
+	//keyPoints.push_back(ray[1] + ray[0] * offset + scale * glm::vec3(1.f, 1.f, 0.f));
 	//keyPoints.push_back(ray[0] + ray[1] * rayEnd * scale);
 	//keyPoints.push_back(ray[0] + ray[1] * offset - scale * glm::vec3(1.f, 1.f, 0.f));
 	//keyPoints.push_back(ray[0] + ray[1] * rayEnd * scale);
