@@ -18,6 +18,11 @@ namespace Core
 		void initFromOBJ(obj::Model& model);
 	};
 
+	struct RayContext : RenderContext {
+
+		void render();
+	};
+
 	// vertexArray - jednowymiarowa tablica zawierajaca wartosci opisujace pozycje kolejnych wierzcholkow w jednym ciagu (x1, y1, z1, w1, x2, y2, z2, w2, ...)
 	// numVertices - liczba wierzcholkow do narysowania
 	// elementSize - liczba wartosci opisujacych pojedynczy wierzcholek (np. 3 gdy wierzcholek opisany jest trojka (x, y, z))
@@ -66,4 +71,8 @@ namespace Core
 
 	void DrawModel(obj::Model * model);
 	void DrawContext(RenderContext& context);
+
+	void initRay(RayContext& rayContext);
+
+	void updateRayPos(RayContext& rayContext, std::vector<glm::vec3> keyPoints);
 }

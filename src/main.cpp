@@ -38,6 +38,8 @@ using namespace irrklang;
 
 ISoundEngine* SoundEngine = createIrrKlangDevice();
 
+Core::RayContext rayContext;
+bool isShooting;
 
 int windowWidth = 600;
 int windowHeight = 600;
@@ -48,6 +50,7 @@ GLuint programSkybox;
 GLuint programStatic;
 GLuint programExplode;
 GLuint programTextureParticle;
+GLuint programRed;
 
 GLuint winHandle;
 
@@ -213,6 +216,13 @@ double physicsTimeToProcess = 0;
 void enableEngines();
 void disableEngines();
 
+PxVec3 vec3ToPxVec(glm::vec3 vector) {
+	return PxVec3(vector.x, vector.y, vector.z);
+}
+glm::vec3 PxVecTovec3(PxVec3 vector) {
+	return glm::vec3(vector.x, vector.y, vector.z);
+}
+
 void initAsteroidsRenderables() {
 
 	while (ACTUAL_ASTEROIDS_NUMBER < ASTEROIDS_NUMBER) {
@@ -291,7 +301,7 @@ void initPhysicsScene()
 
 	shipMaterial = pxScene.physics->createMaterial(5, 5, 5);
 	shipBody = pxScene.physics->createRigidDynamic(PxTransform(1, 1, 0));
-	PxShape* shipShape = pxScene.physics->createShape(PxSphereGeometry(1.f), *shipMaterial);
+	PxShape* shipShape = pxScene.physics->createShape(PxSphereGeometry(.1f), *shipMaterial);
 	shipBody->attachShape(*shipShape);
 	shipShape->release();
 	shipBody->setName("ship");
@@ -466,8 +476,10 @@ void keyboard(unsigned char key, int x, int y)
 	case 'x': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, -1))* rotation; break;
 	case 'w': {
 		//cameraPos += cameraDir * moveSpeed;
-		speedUp();
-		enableEngines();
+		if (amountHp != 0) {
+			speedUp();
+			enableEngines();
+		}		
 		break;
 	}
 	case 's': {
@@ -479,12 +491,55 @@ void keyboard(unsigned char key, int x, int y)
 	case 'd': cameraPos += cameraSide * moveSpeed; break;
 	case 'a': cameraPos -= cameraSide * moveSpeed; break;
 	//case 'e': explode = true; particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 2000, 0.05, explosionTexture); disableEngines(); break;
-	case 'r': explode = false; break;
+	case 'r':{
+		explode = false;
+		amountHp = 4;
+		break; }
 	case '1': upWeapon(); break;
 	case '2': upArmor(); break;
 	case '3': addCash(); break;
 	case 27: glutDestroyWindow(winHandle); break;
 	}
+}
+
+std::vector<glm::vec3> calculate_ray(float x, float y) {
+	glm::vec2 screen_space_pos(x, y);
+	std::vector<glm::vec3> result;
+
+	//here ray should be calculated
+	glm::vec4 start = glm::vec4(screen_space_pos.x, screen_space_pos.y, -1, 1);
+	start -= glm::vec4(0,1.f,0,0);
+
+	glm::vec4 end = glm::vec4(screen_space_pos.x, screen_space_pos.y, 1, 1);	
+
+	start = glm::inverse(perspectiveMatrix) * start;
+	end = glm::inverse(perspectiveMatrix) * end;
+
+	start = start / start.w;
+	end = end / end.w;
+
+	start = glm::inverse(cameraMatrix) * start;
+	end = glm::inverse(cameraMatrix) * end;
+
+	result.push_back(start);
+	result.push_back(glm::normalize(end - start));
+	return result;
+}
+
+std::vector<glm::vec3> ray;
+
+void updateRay() {
+	//int size_x = glutGet(GLUT_WINDOW_WIDTH);
+	//int size_y = glutGet(GLUT_WINDOW_HEIGHT);
+	//float x = shipBody->getGlobalPose().p.x;
+	//float y = shipBody->getGlobalPose().p.y;
+
+	float x = 0.f;
+	float y = 0.f;
+
+	//ray = calculate_ray((x / float(size_x)), ((y / float(size_y))));
+	ray = calculate_ray(x, y);
+	Core::updateRayPos(rayContext, ray);
 }
 
 void mouse(int x, int y)
@@ -504,6 +559,49 @@ void mouse(int x, int y)
 	lastY = fy;
 	newMouseX = xoffset;
 	newMouseY = yoffset;
+
+}
+
+
+void click_mouse(int button, int state, int x, int y) {
+	if ((GLUT_LEFT_BUTTON == button && state == GLUT_DOWN)) {
+
+		isShooting = true;
+		
+		updateRay();
+
+		//here raycast should be done
+		PxRaycastBuffer hit;
+		pxScene.scene->raycast(vec3ToPxVec(ray[0]), vec3ToPxVec(ray[1]), 1000, hit);
+		
+		//check if there is a hit
+		if (hit.hasAnyHits()) {
+			PxRaycastHit block = hit.block;
+			//check if it is rigid dynamic
+			if (block.actor->getType() == PxActorType::eRIGID_DYNAMIC) {
+				PxRigidDynamic* actor = (PxRigidDynamic*)block.actor;				
+				Renderable* actorRenderable = (Renderable*)actor->userData;
+				string actorName = "";
+				if (actorRenderable->context == &shipContext) actorName = "ship";
+				else if (actorRenderable->context == &asteroidContext)
+				{
+					actorName = "asteroid";
+
+					//Do sth with hit asteroid
+					actor->setLinearVelocity(vec3ToPxVec(cameraDir * 50));
+				}
+				else actorName = " else";
+				cout  << actorName << " " << actor->getGlobalPose().p.x << " " << actor->getGlobalPose().p.y << " " << actor->getGlobalPose().p.z << endl;
+				
+			}
+		}
+		else {
+			std::cout << "no hit\n";
+		}
+	}
+	else if ((GLUT_LEFT_BUTTON == button && state == GLUT_UP)) {
+		isShooting = false;
+	}
 }
 
 
@@ -759,6 +857,15 @@ void drawAsteroids() {
 	}
 }
 
+void drawRay(Core::RayContext& context) {
+	glUseProgram(programRed);
+
+	glm::mat4 transformation = perspectiveMatrix * cameraMatrix;
+	glUniformMatrix4fv(glGetUniformLocation(programRed, "modelViewProjectionMatrix"), 1, GL_FALSE, (float*)&transformation);
+	context.render();
+	glUseProgram(0);
+}
+
 bool gemCaught = false;
 
 void renderScene()
@@ -844,6 +951,12 @@ void renderScene()
 		particleEmitter_RightEngine->draw();
 	}
 
+	
+	if (isShooting) {
+		updateRay();
+		drawRay(rayContext);
+	}	
+
 	updateTransforms();
 	glutSwapBuffers();
 }
@@ -912,6 +1025,13 @@ void init()
 	programTextureParticle = shaderLoader.CreateProgram("shaders/part_tex.vert", "shaders/part_tex.frag");
 
 	explosionTexture = Core::LoadTexture("textures/particles/explosion.png");
+
+
+	programRed = shaderLoader.CreateProgram("shaders/shader_red.vert", "shaders/shader_red.frag");
+
+
+	Core::initRay(rayContext);
+	updateRay();
 	
 	
 	glViewport(0, 0, windowWidth, windowHeight);
@@ -948,12 +1068,14 @@ int main(int argc, char ** argv)
 	glewInit();
 	windowWidth = glutGet(GLUT_SCREEN_WIDTH);
 	windowHeight = glutGet(GLUT_SCREEN_HEIGHT);
-	glutFullScreen();
+	//glutFullScreen();
 
 	glutSetCursor(GLUT_CURSOR_NONE);
 	init();
 	glutKeyboardFunc(keyboard);
 	glutPassiveMotionFunc(mouse);
+	glutMotionFunc(mouse);
+	glutMouseFunc(click_mouse);
 	glutDisplayFunc(renderScene);
 	glutIdleFunc(idle);
 
