@@ -20,30 +20,42 @@
 #include "ParticleEmiter.h"
 #include "ParticleEmiterTex.h"
 
+using namespace std;
+using namespace irrklang;
+
+//#pragma comment(lib, "irrKlang.lib") 
+ISoundEngine* SoundEngine = createIrrKlangDevice();
+
+//------------------------------------------------------------------
+// PARTICLES
+
 // obj
 ParticleEmitter* particleEmitter_LeftEngine;
 ParticleEmitter* particleEmitter_RightEngine;
 ParticleEmitterTex* particleEmitter_ShipExplode;
 ParticleEmitterTex* particleEmitter_AstExplode;
+
 // offset
 const glm::vec3 engineOffset = glm::vec3(-0.23f, -0.08f, -0.4f);
 const glm::mat4 engineRotation = glm::rotate(glm::radians(90.0f), glm::vec3(1, 0, 0));
+
 // particle program
 GLuint programEngineParticle;
-// ...
 GLuint explosionTexture;
-using namespace std;
 
-using namespace irrklang;
-//#pragma comment(lib, "irrKlang.lib") 
-
-ISoundEngine* SoundEngine = createIrrKlangDevice();
+//------------------------------------------------------------------
+// RAYCASTING
 
 Core::RayContext rayContext;
+std::vector<glm::vec3> ray;
 bool isShooting;
+
+//------------------------------------------------------------------
+// PROGRAM
 
 int windowWidth = 600;
 int windowHeight = 600;
+
 GLuint programColor;
 GLuint programTexture;
 GLuint programCubemap;
@@ -55,48 +67,78 @@ GLuint programRed;
 
 GLuint winHandle;
 
-Core::RenderContext shipContext;
-Core::RenderContext gemContext;
-Core::RenderContext asteroidContext;
-
 const float RADIUS = 100.f;
 const int ASTEROIDS_NUMBER = 100;
 int ACTUAL_ASTEROIDS_NUMBER = 0;
 float asteroidAcceleration = 0.05f;
 int asteroidsDestroyed = 0;
+glm::mat4 kaboomAstPos;
+bool isKaboom = false;
 
-std::vector<GLuint> asteroidTextures;
-std::vector<obj::Model> asteroidModels;
-std::vector<Asteroid> asteroids;
+Core::Shader_Loader shaderLoader;
+obj::Model shipModel, sphereModel, gemModel;
 std::vector<PxRigidDynamic*> asteroidsBodies;
-std::vector<GLuint> texturePlanetAnimated;
-
 std::vector<glm::vec3> astPositions;
+
+// textures
 
 GLuint textureShip;
 GLuint textureShipNormal;
 GLuint texturePlanet;
 GLuint textureGem;
+std::vector<GLuint> texturePlanetAnimated;
+std::vector<GLuint> asteroidTextures;
+
+// skybox
 
 GLuint cubemapTexture;
 GLuint skyboxVAO, skyboxVBO;
 
-Core::Shader_Loader shaderLoader;
+std::vector<std::string> faces
+{
+	"textures/skybox/space.jpg",
+	"textures/skybox/space.jpg",
+	"textures/skybox/space.jpg",
+	"textures/skybox/space.jpg",
+	"textures/skybox/space.jpg",
+	"textures/skybox/space.jpg",
+};
 
-obj::Model shipModel, sphereModel, gemModel;
+// camera
 
 glm::vec3 cameraPos = glm::vec3(0, 0, 0);
-glm::vec3 cameraDir; // Wektor "do przodu" kamery
-glm::vec3 cameraSide; // Wektor "w bok" kamery
+glm::vec3 cameraDir;	// Wektor "do przodu" kamery
+glm::vec3 cameraSide;	// Wektor "w bok" kamery
 float cameraAngle = 0;
 
 glm::mat4 cameraMatrix, perspectiveMatrix;
-
 glm::vec3 lightDir = glm::normalize(glm::vec3(1.0f, -0.9f, -1.0f));
-
 glm::quat rotation = glm::quat(1, 0, 0, 0);
+glm::quat rotationZ = glm::angleAxis(glm::radians(0.f), glm::vec3(0, 0, 1));
+
+bool firstMouse;
+float newMouseX = 0;
+float newMouseY = 0;
+float lastX = 0;
+float lastY = 0;
+float mouseSpeed = 0.01f;
+
+glm::mat4 createCameraMatrix()
+{
+	glm::quat rotationChange;
+	rotationChange = glm::angleAxis(float(newMouseY) * mouseSpeed, glm::vec3(1.f, 0.f, 0.f)) * glm::angleAxis(float(newMouseX) * mouseSpeed, glm::vec3(0.f, 1.f, 0.f));
+	newMouseX = 0;
+	newMouseY = 0;
+	rotation = rotationChange * rotation;
+	rotation = normalize(rotation);
+	cameraDir = glm::inverse(rotation) * glm::vec3(0, 0, -1.f);
+	cameraSide = glm::inverse(rotation) * glm::vec3(1.f, 0, 0);
+
+	return Core::createViewMatrixQuat(cameraPos, rotation);
+}
 
 // physical objects
+
 PxRigidStatic *asteroidBody = nullptr;
 PxRigidDynamic* shipBody = nullptr;
 PxRigidDynamic* gemBody = nullptr;
@@ -104,45 +146,69 @@ PxMaterial *asteroidMaterial = nullptr;
 PxMaterial* shipMaterial = nullptr;
 PxMaterial* gemMaterial = nullptr;
 
+Core::RenderContext shipContext;
+Core::RenderContext gemContext;
+vector<Core::RenderContext> asteroidContexts;
+
+// renderable objects (description of a single renderable instance)
+struct Renderable {
+	Core::RenderContext* context;
+	glm::mat4 modelMatrix;
+	GLuint textureId;
+};
+std::vector<Renderable*> renderables;
+std::vector<Renderable*> renderablesAsteroids;
 
 int amountHp, amountArmor, amountEngines, amountSources;
-
-
 bool engineON;
 float maxSpeed = 10;
 float acceleration = 0;
 float accelerationSpeed = 0.1f;
 
+bool explode = false;
+float expl_time = 0.0f;
+float expl_speed = 0.03f;
+
+bool canShoot = true;
+
+//------------------------------------------------------------------
+// SPACESHIP
+
+// speed
+
 void speedUp() {
+
 	if (acceleration < maxSpeed) {
 		acceleration += accelerationSpeed;
 	}
 	else {
 		acceleration = maxSpeed;
 	}
+
 	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
 	shipBody->setLinearVelocity(velocity);
 }
 
 void slowDown() {
+
 	if (acceleration > 0) {
 		acceleration -= accelerationSpeed;
 	}
 	else {
 		acceleration = 0;
 	}
+
 	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
 	shipBody->setLinearVelocity(velocity);
 }
 
 void changeFlightDir() {
+
 	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
 	shipBody->setLinearVelocity(velocity);
 }
 
-bool explode = false;
-float expl_time = 0.0f;
-float expl_speed = 0.03f;
+// engines
 
 void enableEngines() {
 	if (!engineON) {
@@ -160,9 +226,8 @@ void disableEngines() {
 	}
 }
 
-bool canShoot = true;
-
 void onHit() {
+
 	switch (amountArmor) {
 		case 1: {
 			if (amountHp > 0) {
@@ -194,18 +259,9 @@ void onHit() {
 	}
 }
 
-
-// renderable objects (description of a single renderable instance)
-struct Renderable {
-	Core::RenderContext* context;
-	glm::mat4 modelMatrix;
-	GLuint textureId;
-	//bool isRendered = true;
-};
-std::vector<Renderable*> renderables;
-std::vector<Renderable*> renderablesAsteroids;
-
 //------------------------------------------------------------------
+// CONTACT
+
 // contact pairs filtering function
 static PxFilterFlags simulationFilterShader(PxFilterObjectAttributes attributes0,
 	PxFilterData filterData0, PxFilterObjectAttributes attributes1, PxFilterData filterData1,
@@ -220,18 +276,17 @@ static PxFilterFlags simulationFilterShader(PxFilterObjectAttributes attributes0
 	return physx::PxFilterFlag::eDEFAULT;
 }
 
-//------------------------------------------------------------------
 // simulation events processor
 class SimulationEventCallback : public PxSimulationEventCallback
 {
 public:
 	void onContact(const PxContactPairHeader& pairHeader, const PxContactPair* pairs, PxU32 nbPairs)
 	{
-
 		if (pairHeader.actors[0]->userData == renderables[0] && pairHeader.actors[1]->userData != renderables[0]) {
-			onHit();
 
+			onHit();
 		}
+		
 		//for (PxU32 i = 0; i < nbPairs; i++)
 		//{
 		//	const PxContactPair& cp = pairs[i];
@@ -247,26 +302,20 @@ public:
 		//}
 	}
 
-	// The functions below are not used in this exercise.
-	// However, they need to be defined for the class to compile.
 	virtual void onConstraintBreak(PxConstraintInfo* constraints, PxU32 count) {}
 	virtual void onWake(PxActor** actors, PxU32 count) {}
 	virtual void onSleep(PxActor** actors, PxU32 count) {}
 	virtual void onTrigger(PxTriggerPair* pairs, PxU32 count) {}
 	virtual void onAdvance(const PxRigidBody* const* bodyBuffer, const PxTransform* poseBuffer, const PxU32 count) {}
 };
-//----------------------------------------------
 
-//PhysX init
+// PhysX init
 SimulationEventCallback simulationEventCallback;
 Physics pxScene(0.f, simulationFilterShader, &simulationEventCallback);
 
 // fixed timestep for stable and deterministic simulation
 const double physicsStepTime = 1.f / 60.f;
 double physicsTimeToProcess = 0;
-
-//----------------------------------------------
-
 
 void enableEngines();
 void disableEngines();
@@ -278,169 +327,26 @@ glm::vec3 PxVecTovec3(PxVec3 vector) {
 	return glm::vec3(vector.x, vector.y, vector.z);
 }
 
-void initAsteroidsRenderables() {
+void generateGem(float x, float y, float z) {
 
-	while (ACTUAL_ASTEROIDS_NUMBER < ASTEROIDS_NUMBER) {
-		
-		int textureIndex = rand() % asteroidTextures.size();
-		int modelIndex = rand() % asteroidModels.size();
-		
-		GLuint texture = asteroidTextures.at(textureIndex);
-		obj::Model model = asteroidModels.at(modelIndex);
-
-
-		asteroidContext.initFromOBJ(model);
-
-		Renderable* asteroid = new Renderable();
-		asteroid->context = &asteroidContext;
-		asteroid->textureId = texture;
-		//cout << "texture" << asteroid->textureId << endl;
-		//cout << "context" << asteroid->context << endl;
-		renderablesAsteroids.emplace_back(asteroid);
-
-		ACTUAL_ASTEROIDS_NUMBER++;
-	}
-}
-
-void initRenderables()
-{
-
-	// load models
-	shipModel = obj::loadModelFromFile("models/spaceship_cruiser.obj");
-	shipContext.initFromOBJ(shipModel);
-	gemModel = obj::loadModelFromFile("models/gem.obj");
-	gemContext.initFromOBJ(gemModel);
-
-	// load textures
-	textureShip = Core::LoadTexture("textures/ship/cruiser01_diffuse.png");
-	textureGem = Core::LoadTexture("textures/gem.png");
-
-	// ship
-	Renderable* ship = new Renderable();
-	ship->context = &shipContext;
-	ship->textureId = textureShip;
-	renderables.emplace_back(ship);
-
-	// gem
 	Renderable* gem = new Renderable();
 	gem->context = &gemContext;
 	gem->textureId = textureGem;
 	renderables.emplace_back(gem);
 
-	//asteroids
-	initAsteroidsRenderables();
-}
-
-void generateGem(float x, float y, float z) {
-
 	gemMaterial = pxScene.physics->createMaterial(1, 1, 1);
-	PxRigidDynamic* gemBody = pxScene.physics->createRigidDynamic(PxTransform(x, y, z));
-	PxShape* gemShape = pxScene.physics->createShape(PxSphereGeometry(2.f), *gemMaterial);
-	gemBody->attachShape(*gemShape);
-	gemShape->release();
-	gemBody->setName("gem");
-	gemBody->userData = renderables[1];
-	pxScene.scene->addActor(*gemBody);
-}
-
-void initPhysicsScene()
-{
-	asteroidMaterial = pxScene.physics->createMaterial(2, 2, 2);
-	for (int i = 0; i < ASTEROIDS_NUMBER; i++) {
-		glm::vec3 initPos = astPositions[i];
-		PxRigidDynamic* asteroidBody = pxScene.physics->createRigidDynamic(PxTransform(initPos.x, initPos.y, initPos.z));
-		PxShape* asteroidShape = pxScene.physics->createShape(PxSphereGeometry(2.f), *asteroidMaterial);
-		asteroidBody->attachShape(*asteroidShape);
-		asteroidShape->release();
-		asteroidBody->setName("asteroid");
-		asteroidBody->userData = renderablesAsteroids[i];
-		pxScene.scene->addActor(*asteroidBody);
-		asteroidsBodies.push_back(asteroidBody);
-	}
-
-	shipMaterial = pxScene.physics->createMaterial(5, 5, 5);
-	shipBody = pxScene.physics->createRigidDynamic(PxTransform(1, 1, 0));
-	PxShape* shipShape = pxScene.physics->createShape(PxSphereGeometry(.1f), *shipMaterial);
-	shipBody->attachShape(*shipShape);
-	shipShape->release();
-	shipBody->setName("ship");
-	shipBody->userData = renderables[0];
-	pxScene.scene->addActor(*shipBody);
-
-
-	gemMaterial = pxScene.physics->createMaterial(1, 1, 1);
-	gemBody = pxScene.physics->createRigidDynamic(PxTransform(1, 1, -20));
+	gemBody = pxScene.physics->createRigidDynamic(PxTransform(x, y, z));
 	PxShape* gemShape = pxScene.physics->createShape(PxBoxGeometry(1, 1, 1), *gemMaterial);
 	gemBody->attachShape(*gemShape);
 	gemShape->release();
-	gemBody->userData = renderables[1];
-
+	gemBody->userData = gem;
 	pxScene.scene->addActor(*gemBody);
 }
 
-void updateTransforms()
-{
-	// Here we retrieve the current transforms of the objects from the physical simulation.
-	auto actorFlags = PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC;
-	PxU32 nbActors = pxScene.scene->getNbActors(actorFlags);
-	if (nbActors)
-	{
-		std::vector<PxRigidActor*> actors(nbActors);
-		pxScene.scene->getActors(actorFlags, (PxActor**)&actors[0], nbActors);
-		
-		for (auto actor : actors)
-		{
-			// We use the userData of the objects to set up the model matrices
-			// of proper renderables.
-			if (!actor->userData) continue;
-			Renderable *renderable = (Renderable*)actor->userData;
-
-			// get world matrix of the object (actor)
-			PxMat44 transform = actor->getGlobalPose();
-			auto &c0 = transform.column0;
-			auto &c1 = transform.column1;
-			auto &c2 = transform.column2;
-			auto &c3 = transform.column3;
-
-			// set up the model matrix used for the rendering
-			renderable->modelMatrix = glm::mat4(
-				c0.x, c0.y, c0.z, c0.w,
-				c1.x, c1.y, c1.z, c1.w,
-				c2.x, c2.y, c2.z, c2.w,
-				c3.x, c3.y, c3.z, c3.w);
-		}
-	}
-}
-
-bool firstMouse;
-float newMouseX = 0;
-float newMouseY = 0;
-float lastX = 0;
-float lastY = 0;
-float mouseSpeed = 0.01f;
-
-
-glm::quat rotationZ = glm::angleAxis(glm::radians(0.f), glm::vec3(0, 0, 1));
-
-
-std::vector<std::string> faces
-{
-	"textures/skybox/space.jpg",
-	"textures/skybox/space.jpg",
-	"textures/skybox/space.jpg",
-	"textures/skybox/space.jpg",
-	"textures/skybox/space.jpg",
-	"textures/skybox/space.jpg",	
-};
-
-
-
-void sourceGrab() {
-	amountSources++;
-}
-
 void upArmor() {
+
 	if (amountArmor < 4) {
+
 		int currentBalance = amountSources;
 		switch (amountArmor) {
 		case 1:
@@ -467,7 +373,9 @@ void upArmor() {
 }
 
 void upEngines() {
+
 	if (amountEngines < 4) {
+
 		int currentBalance = amountSources;
 		switch (amountEngines) {
 		case 1:
@@ -499,49 +407,12 @@ void upEngines() {
 	}
 }
 void addCash() {
-	//just to test
+	
 	amountSources++;
 }
 
-void keyboard(unsigned char key, int x, int y)
-{
-	
-	float angleSpeed = .1f;
-	float moveSpeed = 1.0f;
-	switch(key)
-	{	
-	case 'z': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, 1))* rotation; break;
-	case 'x': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, -1))* rotation; break;
-	case 'w': {
-		//cameraPos += cameraDir * moveSpeed;
-		if (amountHp != 0) {
-			speedUp();
-			enableEngines();
-		}		
-		break;
-	}
-	case 's': {
-		//cameraPos -= cameraDir * moveSpeed;
-		slowDown();
-		disableEngines();
-		break;
-	} 
-	case 'd': cameraPos += cameraSide * moveSpeed; break;
-	case 'a': cameraPos -= cameraSide * moveSpeed; break;
-	//case 'e': explode = true; particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 2000, 0.05, explosionTexture); disableEngines(); break;
-	case 'r':{
-		explode = false;
-		canShoot = true;
-		amountHp = 4;
-		break; }
-	case '1': upEngines(); break;
-	case '2': upArmor(); break;
-	case '3': addCash(); break;
-	case 27: glutDestroyWindow(winHandle); break;
-	}
-}
-
 std::vector<glm::vec3> calculate_ray(float x, float y) {
+
 	glm::vec2 screen_space_pos(x, y);
 	std::vector<glm::vec3> result;
 
@@ -562,10 +433,9 @@ std::vector<glm::vec3> calculate_ray(float x, float y) {
 
 	result.push_back(start);
 	result.push_back(glm::normalize(end - start));
+
 	return result;
 }
-
-std::vector<glm::vec3> ray;
 
 void updateRay() {
 	float x = 0.f;
@@ -575,99 +445,17 @@ void updateRay() {
 	Core::updateRayPos(rayContext, ray);
 }
 
-void mouse(int x, int y)
-{
-	float fx = float(x);
-	float fy = float(y);
 
-	if (firstMouse) {
-		lastX = fx;
-		lastY = fy;
-		firstMouse = false;
-	}
-	
-	float xoffset = fx - lastX;
-	float yoffset = fy - lastY;
-	lastX = fx;
-	lastY = fy;
-	newMouseX = xoffset;
-	newMouseY = yoffset;
-
-}
-glm::mat4 kaboomAstPos;
-bool isKaboom = false;
 void asteroidGoesKaboom(glm::mat4 currentAstPos)
 {
 	particleEmitter_AstExplode->update(0.01f, currentAstPos, cameraMatrix, perspectiveMatrix);
 	particleEmitter_AstExplode->draw();
 }
 
-void click_mouse(int button, int state, int x, int y) {
-	if ((GLUT_LEFT_BUTTON == button && state == GLUT_DOWN)) {
+//----------------------------------------------
+// DRAWING FUNCTIONS
 
-		isShooting = true;
-		
-		updateRay();
-
-		//here raycast should be done
-		PxRaycastBuffer hit;
-		pxScene.scene->raycast(vec3ToPxVec(ray[0]), vec3ToPxVec(ray[1]), 1000, hit);
-		
-		//check if there is a hit
-		if (hit.hasAnyHits() && canShoot) {
-			PxRaycastHit block = hit.block;
-			//check if it is rigid dynamic
-			if (block.actor->getType() == PxActorType::eRIGID_DYNAMIC) {
-				PxRigidDynamic* actor = (PxRigidDynamic*)block.actor;				
-				Renderable* actorRenderable = (Renderable*)actor->userData;
-				string actorName = "";
-				if (actorRenderable->context == &shipContext) actorName = "ship";
-				else if (actorRenderable->context == &asteroidContext)
-				{
-					actorName = "asteroid";
-					glm::mat4 currentAstPos = glm::translate(glm::vec3(actor->getGlobalPose().p.x, actor->getGlobalPose().p.y, actor->getGlobalPose().p.z));
-					//Do sth with hit asteroid
-					actor->setLinearVelocity(vec3ToPxVec(cameraDir * 500));
-					particleEmitter_AstExplode = new ParticleEmitterTex(&programTextureParticle, 2500, 0.7f, explosionTexture);
-					kaboomAstPos = currentAstPos;
-					isKaboom = true;
-					asteroidsDestroyed++;
-					if (asteroidsDestroyed == 5)	asteroidAcceleration = 0.1f;
-					else if (asteroidsDestroyed == 10) asteroidAcceleration = 0.2f;
-					else if (asteroidsDestroyed == 20) asteroidAcceleration = 0.3f;
-					else if (asteroidsDestroyed == 50) asteroidAcceleration = 0.5f;
-
-				}
-				else actorName = " else";
-				cout  << actorName << " " << actor->getGlobalPose().p.x << " " << actor->getGlobalPose().p.y << " " << actor->getGlobalPose().p.z << endl;
-				
-			}
-		}
-		else {
-			std::cout << "no hit\n";
-		}
-	}
-	else if ((GLUT_LEFT_BUTTON == button && state == GLUT_UP)) {
-		isShooting = false;
-	}
-}
-
-
-glm::mat4 createCameraMatrix()
-{
-	glm::quat rotationChange;
-	rotationChange = glm::angleAxis(float(newMouseY)*mouseSpeed, glm::vec3(1.f, 0.f, 0.f))*glm::angleAxis(float(newMouseX)*mouseSpeed, glm::vec3(0.f, 1.f, 0.f));
-	newMouseX = 0;
-	newMouseY = 0;
-	rotation = rotationChange * rotation;
-	rotation = normalize(rotation);
-	cameraDir = glm::inverse(rotation) * glm::vec3(0, 0, -1.f);
-	cameraSide = glm::inverse(rotation) * glm::vec3(1.f, 0, 0);
-
-	return Core::createViewMatrixQuat(cameraPos, rotation);
-}
-
-void drawObjectColor(obj::Model * model, glm::mat4 modelMatrix, glm::vec3 color)
+void drawObjectColor(obj::Model* model, glm::mat4 modelMatrix, glm::vec3 color)
 {
 	GLuint program = programColor;
 
@@ -685,7 +473,7 @@ void drawObjectColor(obj::Model * model, glm::mat4 modelMatrix, glm::vec3 color)
 	glUseProgram(0);
 }
 
-void drawObjectTexture(obj::Model * model, glm::mat4 modelMatrix, GLuint textureId)
+void drawObjectTexture(obj::Model* model, glm::mat4 modelMatrix, GLuint textureId)
 {
 	GLuint program = programTexture;
 
@@ -706,7 +494,7 @@ void drawObjectTexture(obj::Model * model, glm::mat4 modelMatrix, GLuint texture
 	glUseProgram(0);
 }
 
-void drawObjectTextureFromContext(Core::RenderContext * context, glm::mat4 modelMatrix, GLuint textureId)
+void drawObjectTextureFromContext(Core::RenderContext* context, glm::mat4 modelMatrix, GLuint textureId)
 {
 	GLuint program = programTexture;
 
@@ -755,9 +543,9 @@ void printShop(std::string text, int x, int y) {
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
 	glLoadIdentity();
-	glWindowPos2i(0.01*x*windowWidth, 0.01*y*windowHeight);
+	glWindowPos2i(0.01 * x * windowWidth, 0.01 * y * windowHeight);
 	std::string s = text;
-	void * font = GLUT_BITMAP_TIMES_ROMAN_24;
+	void* font = GLUT_BITMAP_TIMES_ROMAN_24;
 	for (std::string::iterator i = s.begin(); i != s.end(); ++i)
 	{
 		char c = *i;
@@ -787,7 +575,7 @@ void drawHealth(float health) {
 
 float simple(float n) {
 	//żeby tekst i paski dało się w takiej samej konwencji
-	return (-1.f+0.02f*n);
+	return (-1.f + 0.02f * n);
 };
 
 void drawStaticScene(int hp, int weapon, int armor, int sources) {
@@ -894,9 +682,9 @@ void drawAsteroids() {
 		glm::vec3 shipPosVector = glm::vec3(shipPosition.x, shipPosition.y, shipPosition.z);
 		glm::vec3 diff = shipPosVector - currentAstGlmPos;
 		if (diff.x > 50 || diff.y > 50 || diff.z > 50) {
-			
+
 			glm::vec3 astVelocityVector = shipPosVector + ballRandVector;
-			glm::vec3 transformationVector = glm::ballRand(RADIUS)+glm::vec3(10.f) + shipPosVector;
+			glm::vec3 transformationVector = glm::ballRand(RADIUS) + glm::vec3(10.f) + shipPosVector;
 			glm::mat4 transformation = glm::translate(transformationVector);
 			asteroidsBodies[i]->setGlobalPose(PxTransform(transformationVector.x, transformationVector.y, transformationVector.z));
 			currentAstPos = PxVec3(transformationVector.x, transformationVector.y, transformationVector.z);
@@ -906,8 +694,6 @@ void drawAsteroids() {
 		else {
 			drawObjectTextureFromContext(renderablesAsteroids[i]->context, transformation, renderablesAsteroids[i]->textureId);
 		}
-
-		//cout << i <<' '<< renderablesAsteroids[i]->context << endl;
 	}
 }
 
@@ -920,10 +706,45 @@ void drawRay(Core::RayContext& context) {
 	glUseProgram(0);
 }
 
-bool gemCaught = false;
+//------------------------------------------------------------------
+// RENDER
+
+void updateTransforms()
+{
+	// Here we retrieve the current transforms of the objects from the physical simulation.
+	auto actorFlags = PxActorTypeFlag::eRIGID_DYNAMIC | PxActorTypeFlag::eRIGID_STATIC;
+	PxU32 nbActors = pxScene.scene->getNbActors(actorFlags);
+	if (nbActors)
+	{
+		std::vector<PxRigidActor*> actors(nbActors);
+		pxScene.scene->getActors(actorFlags, (PxActor**)&actors[0], nbActors);
+
+		for (auto actor : actors)
+		{
+			// We use the userData of the objects to set up the model matrices
+			// of proper renderables.
+			if (!actor->userData) continue;
+			Renderable* renderable = (Renderable*)actor->userData;
+
+			// get world matrix of the object (actor)
+			PxMat44 transform = actor->getGlobalPose();
+			auto& c0 = transform.column0;
+			auto& c1 = transform.column1;
+			auto& c2 = transform.column2;
+			auto& c3 = transform.column3;
+
+			// set up the model matrix used for the rendering
+			renderable->modelMatrix = glm::mat4(
+				c0.x, c0.y, c0.z, c0.w,
+				c1.x, c1.y, c1.z, c1.w,
+				c2.x, c2.y, c2.z, c2.w,
+				c3.x, c3.y, c3.z, c3.w);
+		}
+	}
+}
 
 void renderScene()
-{	
+{
 	double time = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
 	static double prevTime = time;
 	double dtime = time - prevTime;
@@ -938,14 +759,14 @@ void renderScene()
 			physicsTimeToProcess -= physicsStepTime;
 		}
 	}
-	
+
 	changeFlightDir();
 	PxVec3 transform = shipBody->getGlobalPose().p;
 	cameraPos = glm::vec3(transform.x, transform.y, transform.z);
 
 	// Aktualizacja macierzy widoku i rzutowania
 	cameraMatrix = createCameraMatrix();
-	perspectiveMatrix = Core::createPerspectiveMatrix(0.1f, 1000.0f, float(windowWidth/windowHeight));
+	perspectiveMatrix = Core::createPerspectiveMatrix(0.1f, 1000.0f, float(windowWidth / windowHeight));
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glClearColor(0.0f, 0.1f, 0.3f, 1.0f);
@@ -955,36 +776,34 @@ void renderScene()
 	Skybox::drawSkybox(programSkybox, cameraMatrix, perspectiveMatrix, cubemapTexture);
 
 	glm::mat4 shipInitialTransformation = glm::translate(glm::vec3(0, -0.25f, 0)) * glm::rotate(glm::radians(180.0f), glm::vec3(0, 1, 0)) * glm::scale(glm::vec3(0.25f));
-	glm::mat4 shipModelMatrix = glm::translate(cameraPos + cameraDir * 0.5f) * glm::mat4_cast(glm::inverse(rotation)) * shipInitialTransformation;	
-	
+	glm::mat4 shipModelMatrix = glm::translate(cameraPos + cameraDir * 0.5f) * glm::mat4_cast(glm::inverse(rotation)) * shipInitialTransformation;
+
 	if (!explode) {
 		drawObjectTextureFromContext(renderables[0]->context, shipModelMatrix * glm::scale(glm::vec3(0.075f)), renderables[0]->textureId);
 		expl_time = 0.0;
 	}
-	else if (expl_time <= 3.5){
-		drawObjectExplode(renderables[0]->context, shipModelMatrix* glm::scale(glm::vec3(0.075f)), renderables[0]->textureId);
+	else if (expl_time <= 3.5) {
+		drawObjectExplode(renderables[0]->context, shipModelMatrix * glm::scale(glm::vec3(0.075f)), renderables[0]->textureId);
 		particleEmitter_ShipExplode->update(0.01f, shipModelMatrix, cameraMatrix, perspectiveMatrix);
 		particleEmitter_ShipExplode->draw();
-	}	
-	
+	}
+
 	// gems
-	if (!gemCaught) {
+	for (int i = 1; i < renderables.size(); i++) {
 
-		/*for (int i = 1; i < renderables.size(); i++) {	*/
-		for (int i = 1; i < 2; i++) {
-			glm::mat4 transformation = renderables[i]->modelMatrix;
-			drawObjectTextureFromContext(renderables[i]->context, transformation, renderables[i]->textureId);
-			glm::vec3 position = cameraPos;
-			PxVec3 gemPos = gemBody->getGlobalPose().p;
-			float distance = glm::distance(glm::vec3(position.x, position.y, position.z), glm::vec3(gemPos.x, gemPos.y, gemPos.z));
+		glm::mat4 transformation = renderables[i]->modelMatrix;
+		drawObjectTextureFromContext(renderables[i]->context, transformation, renderables[i]->textureId);
 
-			if (distance < 10.f) {
-				renderables.erase(renderables.begin() + i);
-				addCash();
-				gemCaught = true;
-			}
+		glm::vec3 position = cameraPos;
+		PxVec3 gemPos = gemBody->getGlobalPose().p;
+		float distance = glm::distance(glm::vec3(position.x, position.y, position.z), glm::vec3(gemPos.x, gemPos.y, gemPos.z));
+
+		if (distance < 10.f) {
+			renderables.erase(renderables.begin() + i);
+			addCash();
 		}
 	}
+
 	//asteroids
 	drawAsteroids();
 	if (isKaboom) {
@@ -995,7 +814,7 @@ void renderScene()
 
 	//planets
 	drawPlanets();
-	
+
 	//UI
 	glUseProgram(programStatic);
 	drawStaticScene(amountHp, amountEngines, amountArmor, amountSources);
@@ -1003,6 +822,7 @@ void renderScene()
 
 	//Engine particles
 	if (engineON) {
+
 		particleEmitter_LeftEngine->update(0.01f, shipModelMatrix * glm::translate(engineOffset) * engineRotation, cameraMatrix, perspectiveMatrix);
 		particleEmitter_LeftEngine->draw();
 
@@ -1010,48 +830,124 @@ void renderScene()
 		particleEmitter_RightEngine->draw();
 	}
 
-	
 	if (isShooting && canShoot) {
+
 		updateRay();
 		drawRay(rayContext);
-	}	
+	}
 
 	updateTransforms();
 	glutSwapBuffers();
 }
 
+//----------------------------------------------
+// INIT FUNCTIONS
+
+void initPhysicsScene()
+{
+	asteroidMaterial = pxScene.physics->createMaterial(2, 2, 2);
+
+	for (int i = 0; i < ASTEROIDS_NUMBER; i++) {
+
+		glm::vec3 initPos = astPositions[i];
+		PxRigidDynamic* asteroidBody = pxScene.physics->createRigidDynamic(PxTransform(initPos.x, initPos.y, initPos.z));
+		PxShape* asteroidShape = pxScene.physics->createShape(PxSphereGeometry(2.f), *asteroidMaterial);
+		asteroidBody->attachShape(*asteroidShape);
+		asteroidShape->release();
+		asteroidBody->setName("asteroid");
+		asteroidBody->userData = renderablesAsteroids[i];
+		pxScene.scene->addActor(*asteroidBody);
+		asteroidsBodies.push_back(asteroidBody);
+	}
+
+	shipMaterial = pxScene.physics->createMaterial(5, 5, 5);
+	shipBody = pxScene.physics->createRigidDynamic(PxTransform(1, 1, 0));
+	PxShape* shipShape = pxScene.physics->createShape(PxSphereGeometry(.1f), *shipMaterial);
+	shipBody->attachShape(*shipShape);
+	shipShape->release();
+	shipBody->setName("ship");
+	shipBody->userData = renderables[0];
+	pxScene.scene->addActor(*shipBody);
+}
+
 void initAsteroids() {
+
 	// load asteroids textures
-	for (const auto& file : fs::directory_iterator("textures/asteroids")) {
+	for (const auto& file : fs::directory_iterator("textures/asteroids")) 
+	{
 		asteroidTextures.push_back(Core::LoadTexture(file.path().string().c_str()));
 		cout << "Loaded:" << file.path().string().c_str() << endl;
 	}
-		
 
-	// load asteroids models
-	for (const auto& file : fs::directory_iterator("models/asteroids")) {
-		cout << "Loaded:" << file.path().string().c_str() << endl;
-		asteroidModels.push_back(obj::loadModelFromFile(file.path().string().c_str()));
+	// load asteroids contexts
+	for (const auto& file : fs::directory_iterator("models/asteroids"))
+	{
+		obj::Model model = obj::loadModelFromFile(file.path().string().c_str());
+		Core::RenderContext context;
+		context.initFromOBJ(model);
+		asteroidContexts.push_back(context);
 	}
-		
 
 	for(int i=0; i< ASTEROIDS_NUMBER; i++){
 		astPositions.push_back(glm::ballRand(RADIUS));
 	}
 }
 
+void initAsteroidsRenderables() {
+
+	while (ACTUAL_ASTEROIDS_NUMBER < ASTEROIDS_NUMBER) {
+
+		int textureIndex = rand() % asteroidTextures.size();
+		int contextIndex = rand() % asteroidContexts.size();
+		GLuint texture = asteroidTextures.at(textureIndex);
+
+		Renderable* asteroid = new Renderable();
+		asteroid->context = &asteroidContexts.at(contextIndex);
+		asteroid->textureId = texture;
+		renderablesAsteroids.emplace_back(asteroid);
+
+		ACTUAL_ASTEROIDS_NUMBER++;
+	}
+}
+
 void initAsteroidsVelocity() {
+
 	for (int i = 0; i < ASTEROIDS_NUMBER; i++) {
+
 		PxVec3 currentAstPos = asteroidsBodies[i]->getGlobalPose().p;
 		PxVec3 shipPosition = shipBody->getGlobalPose().p;
 		glm::vec3 ballRandVector = glm::ballRand(20.f);
 		glm::vec3 shipPosVector = glm::vec3(shipPosition.x, shipPosition.y, shipPosition.z);
 		glm::vec3 astVelocityVector = shipPosVector + ballRandVector;
-		asteroidsBodies[i]->setLinearVelocity(PxVec3(PxVec3(astVelocityVector.x, astVelocityVector.y, astVelocityVector.z) - currentAstPos)* .1f);
+		asteroidsBodies[i]->setLinearVelocity(PxVec3(PxVec3(astVelocityVector.x, astVelocityVector.y, astVelocityVector.z) - currentAstPos) * .1f);
 	}
 }
 
+void initRenderables()
+{
+
+	// load models
+	shipModel = obj::loadModelFromFile("models/spaceship_cruiser.obj");
+	shipContext.initFromOBJ(shipModel);
+	gemModel = obj::loadModelFromFile("models/gem.obj");
+	gemContext.initFromOBJ(gemModel);
+
+	// load textures
+	textureShip = Core::LoadTexture("textures/ship/cruiser01_diffuse.png");
+	textureGem = Core::LoadTexture("textures/gem.png");
+
+	// ship
+	Renderable* ship = new Renderable();
+	ship->context = &shipContext;
+	ship->textureId = textureShip;
+	renderables.emplace_back(ship);
+
+	// asteroids
+	initAsteroidsRenderables();
+}
+
 void initStatic() {
+
 	amountHp = 10;
 	amountEngines = 1;
 	amountArmor = 1;
@@ -1089,18 +985,126 @@ void init()
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	
-
 	explosionTexture = Core::LoadTexture("textures/particles/explosion.png");
-
-
 	programRed = shaderLoader.CreateProgram("shaders/shader_red.vert", "shaders/shader_red.frag");
-
-
 	Core::initRay(rayContext);
 	updateRay();
-	
-	
 	glViewport(0, 0, windowWidth, windowHeight);
+}
+
+//------------------------------------------------------------------
+// MOUSE AND KEYBOARD
+
+void mouse(int x, int y)
+{
+	float fx = float(x);
+	float fy = float(y);
+
+	if (firstMouse) {
+		lastX = fx;
+		lastY = fy;
+		firstMouse = false;
+	}
+
+	float xoffset = fx - lastX;
+	float yoffset = fy - lastY;
+	lastX = fx;
+	lastY = fy;
+	newMouseX = xoffset;
+	newMouseY = yoffset;
+}
+
+void click_mouse(int button, int state, int x, int y) {
+
+	if ((GLUT_LEFT_BUTTON == button && state == GLUT_DOWN)) {
+
+		isShooting = true;
+
+		updateRay();
+
+		//here raycast should be done
+		PxRaycastBuffer hit;
+		pxScene.scene->raycast(vec3ToPxVec(ray[0]), vec3ToPxVec(ray[1]), 1000, hit);
+
+		//check if there is a hit
+		if (hit.hasAnyHits() && canShoot) {
+			PxRaycastHit block = hit.block;
+			//check if it is rigid dynamic
+			if (block.actor->getType() == PxActorType::eRIGID_DYNAMIC) {
+				PxRigidDynamic* actor = (PxRigidDynamic*)block.actor;
+				Renderable* actorRenderable = (Renderable*)actor->userData;
+				string actorName = "";
+				if (actorRenderable->context == &shipContext) actorName = "ship";
+				else if (actorRenderable->context == &gemContext) {
+					actorName = "gem";
+				}
+				//else if (actorRenderable->context == &asteroidContext)
+				else
+				{
+					actorName = "asteroid";
+					glm::vec3 positionVec = glm::vec3(actor->getGlobalPose().p.x, actor->getGlobalPose().p.y, actor->getGlobalPose().p.z);
+					glm::mat4 currentAstPos = glm::translate(positionVec);
+					//Do sth with hit asteroid
+					actor->setLinearVelocity(vec3ToPxVec(cameraDir * 500));
+					particleEmitter_AstExplode = new ParticleEmitterTex(&programTextureParticle, 2500, 0.7f, explosionTexture);
+					kaboomAstPos = currentAstPos;
+					isKaboom = true;
+					asteroidsDestroyed++;
+
+					generateGem(positionVec.x, positionVec.y, positionVec.z);
+
+					if (asteroidsDestroyed == 5)	asteroidAcceleration = 0.1f;
+					else if (asteroidsDestroyed == 10) asteroidAcceleration = 0.2f;
+					else if (asteroidsDestroyed == 20) asteroidAcceleration = 0.3f;
+					else if (asteroidsDestroyed == 50) asteroidAcceleration = 0.5f;
+				}
+			}
+		}
+		else {
+			std::cout << "no hit\n";
+		}
+	}
+	else if ((GLUT_LEFT_BUTTON == button && state == GLUT_UP)) {
+		isShooting = false;
+	}
+}
+
+void keyboard(unsigned char key, int x, int y)
+{
+
+	float angleSpeed = .1f;
+	float moveSpeed = 1.0f;
+	switch (key)
+	{
+	case 'z': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, 1)) * rotation; break;
+	case 'x': rotation = glm::angleAxis(angleSpeed, glm::vec3(0, 0, -1)) * rotation; break;
+	case 'w': {
+		//cameraPos += cameraDir * moveSpeed;
+		if (amountHp != 0) {
+			speedUp();
+			enableEngines();
+		}
+		break;
+	}
+	case 's': {
+		//cameraPos -= cameraDir * moveSpeed;
+		slowDown();
+		disableEngines();
+		break;
+	}
+	case 'd': cameraPos += cameraSide * moveSpeed; break;
+	case 'a': cameraPos -= cameraSide * moveSpeed; break;
+		//case 'e': explode = true; particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 2000, 0.05, explosionTexture); disableEngines(); break;
+	case 'r': {
+		explode = false;
+		canShoot = true;
+		amountHp = 4;
+		break; }
+	case '1': upEngines(); break;
+	case '2': upArmor(); break;
+	case '3': addCash(); break;
+	case 27: glutDestroyWindow(winHandle); break;
+	}
 }
 
 void shutdown()

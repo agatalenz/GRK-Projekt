@@ -1,0 +1,3 @@
+C:/Users/48731/source/repos/GRK_25-02/dependencies/glm/out/build/x64-Debug/CMakeFiles/glm_dummy.dir
+C:/Users/48731/source/repos/GRK_25-02/dependencies/glm/out/build/x64-Debug/CMakeFiles/edit_cache.dir
+C:/Users/48731/source/repos/GRK_25-02/dependencies/glm/out/build/x64-Debug/CMakeFiles/rebuild_cache.dir
