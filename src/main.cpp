@@ -160,6 +160,8 @@ void disableEngines() {
 	}
 }
 
+bool canShoot = true;
+
 void onHit() {
 	switch (amountArmor) {
 		case 1: {
@@ -185,6 +187,8 @@ void onHit() {
 	if(amountHp <= 0) {
 		amountHp = 0;
 		explode = true; 
+		acceleration = 0;
+		canShoot = false;
 		particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 2000, 0.05f, explosionTexture); 
 		disableEngines();
 	}
@@ -527,6 +531,7 @@ void keyboard(unsigned char key, int x, int y)
 	//case 'e': explode = true; particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 2000, 0.05, explosionTexture); disableEngines(); break;
 	case 'r':{
 		explode = false;
+		canShoot = true;
 		amountHp = 4;
 		break; }
 	case '1': upEngines(); break;
@@ -609,7 +614,7 @@ void click_mouse(int button, int state, int x, int y) {
 		pxScene.scene->raycast(vec3ToPxVec(ray[0]), vec3ToPxVec(ray[1]), 1000, hit);
 		
 		//check if there is a hit
-		if (hit.hasAnyHits()) {
+		if (hit.hasAnyHits() && canShoot) {
 			PxRaycastHit block = hit.block;
 			//check if it is rigid dynamic
 			if (block.actor->getType() == PxActorType::eRIGID_DYNAMIC) {
@@ -627,10 +632,10 @@ void click_mouse(int button, int state, int x, int y) {
 					kaboomAstPos = currentAstPos;
 					isKaboom = true;
 					asteroidsDestroyed++;
-					if (asteroidsDestroyed >= 5)	asteroidAcceleration += 0.05f;
-					else if (asteroidsDestroyed >= 10) asteroidAcceleration += 0.05f;
-					else if (asteroidsDestroyed >= 20) asteroidAcceleration += 0.05f;
-					else if (asteroidsDestroyed >= 50) asteroidAcceleration += 0.05f;
+					if (asteroidsDestroyed == 5)	asteroidAcceleration = 0.1f;
+					else if (asteroidsDestroyed == 10) asteroidAcceleration = 0.2f;
+					else if (asteroidsDestroyed == 20) asteroidAcceleration = 0.3f;
+					else if (asteroidsDestroyed == 50) asteroidAcceleration = 0.5f;
 
 				}
 				else actorName = " else";
@@ -1006,7 +1011,7 @@ void renderScene()
 	}
 
 	
-	if (isShooting) {
+	if (isShooting && canShoot) {
 		updateRay();
 		drawRay(rayContext);
 	}	
