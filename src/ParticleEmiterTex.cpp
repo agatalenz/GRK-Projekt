@@ -31,7 +31,7 @@ ParticleEmitterTex::ParticleEmitterTex(GLuint* program, int particleCount, float
 	for (int i = 0; i < particleCount; ++i)
 	{
 		particles[i].position = glm::vec3(0);
-		particles[i].velocity = glm::normalize(glm::vec3(randomFloat(-1, 1), randomFloat(-1, 1), randomFloat(-1, 1)));
+		particles[i].velocity = glm::normalize(glm::vec3(randomFloat(-2, 2), randomFloat(-2, 2), randomFloat(-2, 2)));
 		particles[i].lifetime = randomFloat(1.0f, 2.0f);
 		particles[i].radius = 0.02f;
 	}
