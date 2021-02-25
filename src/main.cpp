@@ -94,15 +94,51 @@ glm::vec3 lightDir = glm::normalize(glm::vec3(1.0f, -0.9f, -1.0f));
 
 glm::quat rotation = glm::quat(1, 0, 0, 0);
 
+// physical objects
+PxRigidStatic *asteroidBody = nullptr;
+PxRigidDynamic* shipBody = nullptr;
+PxRigidDynamic* gemBody = nullptr;
+PxMaterial *asteroidMaterial = nullptr;
+PxMaterial* shipMaterial = nullptr;
+PxMaterial* gemMaterial = nullptr;
 
-int amountHp, amountArmor, amountWeapon, amountSources;
+
+int amountHp, amountArmor, amountEngines, amountSources;
+
+
+bool engineON;
+float maxSpeed = 10;
+float acceleration = 0;
+float accelerationSpeed = 0.1f;
+
+void speedUp() {
+	if (acceleration < maxSpeed) {
+		acceleration += accelerationSpeed;
+	}
+	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
+	shipBody->setLinearVelocity(velocity);
+}
+
+void slowDown() {
+	if (acceleration > 0) {
+		acceleration -= accelerationSpeed;
+	}
+	else {
+		acceleration = 0;
+	}
+	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
+	shipBody->setLinearVelocity(velocity);
+}
+
+void changeFlightDir() {
+	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
+	shipBody->setLinearVelocity(velocity);
+}
 
 bool explode = false;
 float expl_time = 0.0f;
 float expl_speed = 0.03f;
-bool engineON;
-float maxSpeed = 10;
-float acceleration = 0;
+
 void enableEngines() {
 	if (!engineON) {
 		particleEmitter_LeftEngine = new ParticleEmitter(&programEngineParticle, 5000, 0.0030f);
@@ -141,20 +177,13 @@ void onHit() {
 		}
 	}
 		
-	if(amountHp == 0) {
+	if(amountHp <= 0) {
+		amountHp = 0;
 		explode = true; 
 		particleEmitter_ShipExplode = new ParticleEmitterTex(&programTextureParticle, 2000, 0.05f, explosionTexture); 
 		disableEngines();
 	}
 }
-
-// physical objects
-PxRigidStatic *asteroidBody = nullptr;
-PxRigidDynamic* shipBody = nullptr;
-PxRigidDynamic* gemBody = nullptr;
-PxMaterial *asteroidMaterial = nullptr;
-PxMaterial* shipMaterial = nullptr;
-PxMaterial* gemMaterial = nullptr;
 
 
 // renderable objects (description of a single renderable instance)
@@ -409,7 +438,6 @@ void upArmor() {
 			if (currentBalance >= 10) {
 				amountArmor++;
 				currentBalance -= 10;
-				//setWeaponStrength(weaponStrength++)
 			};
 			break;
 		case 2:
@@ -429,26 +457,32 @@ void upArmor() {
 	}
 }
 
-void upWeapon() {
-	if (amountWeapon < 4) {
+void upEngines() {
+	if (amountEngines < 4) {
 		int currentBalance = amountSources;
-		switch (amountWeapon) {
+		switch (amountEngines) {
 		case 1:
 			if (currentBalance >= 10) {
-				amountWeapon++;
+				amountEngines++;
 				currentBalance -= 10;
+				maxSpeed = 12;
+				accelerationSpeed = 0.15f;
 			};
 			break;
 		case 2:
 			if (currentBalance >= 20) {
-				amountWeapon++;
+				amountEngines++;
 				currentBalance -= 20;
+				maxSpeed = 15;
+				accelerationSpeed = 0.2f;
 			};
 			break;
 		case 3:
 			if (currentBalance >= 30) {
-				amountWeapon++;
+				amountEngines++;
 				currentBalance -= 30;
+				maxSpeed = 20;
+				accelerationSpeed = 0.3f;
 			};
 			break;
 		}
@@ -458,32 +492,6 @@ void upWeapon() {
 void addCash() {
 	//just to test
 	amountSources++;
-}
-
-
-
-void speedUp() {
-	if (acceleration < maxSpeed) {
-		acceleration += 0.1f;
-	}	
-	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
-	shipBody->setLinearVelocity(velocity);
-}
-
-void slowDown() {
-	if (acceleration > 0) {
-		acceleration -= 0.1f;
-	}
-	else {
-		acceleration = 0;
-	}
-	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
-	shipBody->setLinearVelocity(velocity);	
-}
-
-void changeFlightDir() {
-	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
-	shipBody->setLinearVelocity(velocity);
 }
 
 void keyboard(unsigned char key, int x, int y)
@@ -516,7 +524,7 @@ void keyboard(unsigned char key, int x, int y)
 		explode = false;
 		amountHp = 4;
 		break; }
-	case '1': upWeapon(); break;
+	case '1': upEngines(); break;
 	case '2': upArmor(); break;
 	case '3': addCash(); break;
 	case 27: glutDestroyWindow(winHandle); break;
@@ -809,7 +817,7 @@ void drawStaticScene(int hp, int weapon, int armor, int sources) {
 	color = glm::vec3(255, 255, 0);
 	glUniform3f(glGetUniformLocation(programStatic, "objectColor"), color.x, color.y, color.z);
 
-	printShop("[1] Weapon:", 1, 88);
+	printShop("[1] Engines:", 1, 88);
 	translateVec = glm::vec3(simple(9.5f), simple(88), 0.f);
 	glUniformMatrix4fv(glGetUniformLocation(programStatic, "transformation"),
 		1, GL_FALSE, (float*)&glm::translate(translateVec));
@@ -977,7 +985,7 @@ void renderScene()
 	
 	//UI
 	glUseProgram(programStatic);
-	drawStaticScene(amountHp, amountWeapon, amountArmor, amountSources);
+	drawStaticScene(amountHp, amountEngines, amountArmor, amountSources);
 	glUseProgram(0);
 
 	//Engine particles
@@ -1032,7 +1040,7 @@ void initAsteroidsVelocity() {
 
 void initStatic() {
 	amountHp = 10;
-	amountWeapon = 1;
+	amountEngines = 1;
 	amountArmor = 1;
 	amountSources = 30;
 }
