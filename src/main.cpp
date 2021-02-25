@@ -141,7 +141,7 @@ glm::mat4 createCameraMatrix()
 
 PxRigidStatic *asteroidBody = nullptr;
 PxRigidDynamic* shipBody = nullptr;
-PxRigidDynamic* gemBody = nullptr;
+PxRigidStatic* gemBody = nullptr;
 PxMaterial *asteroidMaterial = nullptr;
 PxMaterial* shipMaterial = nullptr;
 PxMaterial* gemMaterial = nullptr;
@@ -335,7 +335,7 @@ void generateGem(float x, float y, float z) {
 	renderables.emplace_back(gem);
 
 	gemMaterial = pxScene.physics->createMaterial(1, 1, 1);
-	gemBody = pxScene.physics->createRigidDynamic(PxTransform(x, y, z));
+	gemBody = pxScene.physics->createRigidStatic(PxTransform(x, y, z));
 	PxShape* gemShape = pxScene.physics->createShape(PxBoxGeometry(1, 1, 1), *gemMaterial);
 	gemBody->attachShape(*gemShape);
 	gemShape->release();
@@ -798,7 +798,7 @@ void renderScene()
 		PxVec3 gemPos = gemBody->getGlobalPose().p;
 		float distance = glm::distance(glm::vec3(position.x, position.y, position.z), glm::vec3(gemPos.x, gemPos.y, gemPos.z));
 
-		if (distance < 10.f) {
+		if (distance < 5.f) {
 			renderables.erase(renderables.begin() + i);
 			addCash();
 		}
