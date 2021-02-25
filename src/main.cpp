@@ -259,6 +259,11 @@ void onHit() {
 	}
 }
 
+void addCash() {
+
+	amountSources++;
+}
+
 //------------------------------------------------------------------
 // CONTACT
 
@@ -282,10 +287,34 @@ class SimulationEventCallback : public PxSimulationEventCallback
 public:
 	void onContact(const PxContactPairHeader& pairHeader, const PxContactPair* pairs, PxU32 nbPairs)
 	{
+		
 		if (pairHeader.actors[0]->userData == renderables[0] && pairHeader.actors[1]->userData != renderables[0]) {
 
-			onHit();
+			//if (count(renderables.begin(), renderables.end(), pairHeader.actors[1]->userData)) {
+			Renderable* renderable = (Renderable*)pairHeader.actors[1]->userData;
+
+			if(renderable->context == &gemContext){
+
+				int i = count(renderables.begin(), renderables.end(), renderable);
+
+				PxVec3 gemPos = pairHeader.actors[1]->getGlobalPose().p;
+				float distance = glm::distance(cameraPos, glm::vec3(gemPos.x, gemPos.y, gemPos.z));
+
+				if (i != 0 && distance < 7.f) {
+
+					renderables.erase(renderables.begin() + i, renderables.begin() + i + 1);
+					cout << "renderables size: " << renderables.size() << ", erase at: " << i << endl;
+
+					//cout << "- gem at: ( " << position.x << ", " << position.y << ", " << position.z << ")" << endl;
+					addCash();
+				}
+			}
+			else {
+
+				onHit();
+			}
 		}
+
 		
 		//for (PxU32 i = 0; i < nbPairs; i++)
 		//{
@@ -341,6 +370,9 @@ void generateGem(float x, float y, float z) {
 	gemShape->release();
 	gemBody->userData = gem;
 	pxScene.scene->addActor(*gemBody);
+
+	cout << "+ gem at: ( " << x << ", " << y << ", " << z << ")" << endl;
+
 }
 
 void upArmor() {
@@ -406,10 +438,7 @@ void upEngines() {
 		amountSources = currentBalance;
 	}
 }
-void addCash() {
-	
-	amountSources++;
-}
+
 
 std::vector<glm::vec3> calculate_ray(float x, float y) {
 
@@ -794,14 +823,24 @@ void renderScene()
 		glm::mat4 transformation = renderables[i]->modelMatrix;
 		drawObjectTextureFromContext(renderables[i]->context, transformation, renderables[i]->textureId);
 
-		glm::vec3 position = cameraPos;
+		/*glm::vec3 position = cameraPos;
 		PxVec3 gemPos = gemBody->getGlobalPose().p;
-		float distance = glm::distance(glm::vec3(position.x, position.y, position.z), glm::vec3(gemPos.x, gemPos.y, gemPos.z));
+		float distance = glm::distance(glm::vec3(position.x, position.y, position.z), glm::vec3(gemPos.x, gemPos.y, gemPos.z));*/
 
-		if (distance < 5.f) {
-			renderables.erase(renderables.begin() + i);
+		/*if (distance < 7.f) {
+			
+			if (i == renderables.size() - 1) {
+
+				renderables.erase(renderables.begin() + i);
+			}
+			else {
+
+				renderables.erase(renderables.begin() + i, renderables.begin() + i + 1);
+			}
+			
+			cout << "- gem at: ( " << position.x << ", " << position.y << ", " << position.z << ")" << endl;
 			addCash();
-		}
+		}*/
 	}
 
 	//asteroids
