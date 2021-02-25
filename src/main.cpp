@@ -115,6 +115,9 @@ void speedUp() {
 	if (acceleration < maxSpeed) {
 		acceleration += accelerationSpeed;
 	}
+	else {
+		acceleration = maxSpeed;
+	}
 	PxVec3 velocity = PxVec3(cameraDir.x, cameraDir.y, cameraDir.z) * acceleration;
 	shipBody->setLinearVelocity(velocity);
 }
@@ -831,6 +834,12 @@ void drawStaticScene(int hp, int weapon, int armor, int sources) {
 	std::string src = std::to_string(sources);
 	printShop(src, 94, 94);
 	printShop("> <", 49, 48);
+
+	std::stringstream stream;
+	stream << std::fixed << std::setprecision(1) << acceleration;
+	std::string shipSpeed = stream.str();
+	printShop("Speed: ", 3, 3);
+	printShop(shipSpeed, 7, 3);
 }
 
 void drawPlanets() {
@@ -1116,7 +1125,9 @@ int main(int argc, char ** argv)
 {
 	srand(time(NULL));
 	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
+	glutSetOption(GLUT_MULTISAMPLE, 8);
+	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA | GLUT_MULTISAMPLE);
+	glEnable(GL_MULTISAMPLE);
 	glutInitWindowPosition(200, 200);
 	glutInitWindowSize(windowWidth, windowHeight);
 	winHandle = glutCreateWindow("Space shitter");
