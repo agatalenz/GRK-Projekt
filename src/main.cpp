@@ -62,6 +62,8 @@ Core::RenderContext asteroidContext;
 const float RADIUS = 100.f;
 const int ASTEROIDS_NUMBER = 100;
 int ACTUAL_ASTEROIDS_NUMBER = 0;
+float asteroidAcceleration = 0.05f;
+int asteroidsDestroyed = 0;
 
 std::vector<GLuint> asteroidTextures;
 std::vector<obj::Model> asteroidModels;
@@ -561,15 +563,9 @@ std::vector<glm::vec3> calculate_ray(float x, float y) {
 std::vector<glm::vec3> ray;
 
 void updateRay() {
-	//int size_x = glutGet(GLUT_WINDOW_WIDTH);
-	//int size_y = glutGet(GLUT_WINDOW_HEIGHT);
-	//float x = shipBody->getGlobalPose().p.x;
-	//float y = shipBody->getGlobalPose().p.y;
-
 	float x = 0.f;
 	float y = 0.f;
 
-	//ray = calculate_ray((x / float(size_x)), ((y / float(size_y))));
 	ray = calculate_ray(x, y);
 	Core::updateRayPos(rayContext, ray);
 }
@@ -630,7 +626,11 @@ void click_mouse(int button, int state, int x, int y) {
 					particleEmitter_AstExplode = new ParticleEmitterTex(&programTextureParticle, 2500, 0.7f, explosionTexture);
 					kaboomAstPos = currentAstPos;
 					isKaboom = true;
-					
+					asteroidsDestroyed++;
+					if (asteroidsDestroyed >= 5)	asteroidAcceleration += 0.05f;
+					else if (asteroidsDestroyed >= 10) asteroidAcceleration += 0.05f;
+					else if (asteroidsDestroyed >= 20) asteroidAcceleration += 0.05f;
+					else if (asteroidsDestroyed >= 50) asteroidAcceleration += 0.05f;
 
 				}
 				else actorName = " else";
@@ -878,7 +878,6 @@ void setSpotLight() {
 }
 
 
-
 void drawAsteroids() {
 
 	for (int i = 0; i < renderablesAsteroids.size(); i++) {
@@ -896,7 +895,7 @@ void drawAsteroids() {
 			glm::mat4 transformation = glm::translate(transformationVector);
 			asteroidsBodies[i]->setGlobalPose(PxTransform(transformationVector.x, transformationVector.y, transformationVector.z));
 			currentAstPos = PxVec3(transformationVector.x, transformationVector.y, transformationVector.z);
-			asteroidsBodies[i]->setLinearVelocity(PxVec3(PxVec3(astVelocityVector.x, astVelocityVector.y, astVelocityVector.z) - currentAstPos)* .1f);
+			asteroidsBodies[i]->setLinearVelocity(PxVec3(PxVec3(astVelocityVector.x, astVelocityVector.y, astVelocityVector.z) - currentAstPos) * asteroidAcceleration);
 			drawObjectTextureFromContext(renderablesAsteroids[i]->context, transformation, renderablesAsteroids[i]->textureId);
 		}
 		else {
